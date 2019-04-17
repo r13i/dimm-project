@@ -34,6 +34,7 @@ N.B.: They are most likely in French (Yep, this project is done in the context o
 - SDKs : https://www.theimagingsource.com/products/software/software-development-kits-sdks/ic-imaging-control/
 - For Windows : https://www.theimagingsource.com/support/downloads-for-windows/
 - General resources : https://www.theimagingsource.com/
+- http://www.atnf.csiro.au/people/Enno.Middelberg/python/python.html
 
 #### Python
 - [IC example](https://github.com/TheImagingSource/IC-Imaging-Control-Samples/tree/master/Python/Open%20Camera%2C%20Grab%20Image%20to%20OpenCV)
