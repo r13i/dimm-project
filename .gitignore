@@ -2,11 +2,12 @@ drivers/
 sdk/
 samples/
 
-venv/
-
-
-samples/
 
 venv/
 
 *.avi
+*.pyc
+59418638_2249734121941864_5724851437431685120_n.jpg
+
+__pycache__/*
+.vscode/*

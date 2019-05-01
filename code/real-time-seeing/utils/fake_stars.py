@@ -3,7 +3,7 @@ import numpy as np
 
 class FakeStars(object):
 
-    def __init__(self, value = 255, height = 480, width = 640):
+    def __init__(self, value = 255, height = 360, width = 480):
         self.value = value
         self.height = height
         self.width = width
@@ -27,7 +27,7 @@ class FakeStars(object):
         rand_radius2 = random.randint(5, 10)
         image[self._get_circle(rand_x2, rand_y2, rand_radius2)] = self.value
 
-        return image
+        return np.uint8(image)
 
 
     def _get_circle(self, center_x, center_y, radius):
@@ -45,7 +45,6 @@ if __name__ == "__main__":
     while True:
         image = fake.generate()
 
-        image = np.uint8(image)
         cv2.imshow('test', image)
 
         if cv2.waitKey(500) & 0xFF == ord('q'):

@@ -111,7 +111,6 @@ try:
         cv2.drawMarker(frame, (cX_star1, cY_star1), color=(127, 0, 0), markerSize=30, thickness=1)
         cv2.drawMarker(frame, (cX_star2, cY_star2), color=(127, 0, 0), markerSize=30, thickness=1)
 
-        frame = np.uint8(frame)
         cv2.imshow('image', frame)
         if cv2.waitKey(200) & 0xFF == ord('q'):
             break
