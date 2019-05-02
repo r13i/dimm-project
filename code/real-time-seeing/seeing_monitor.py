@@ -11,7 +11,7 @@ from PyQt5.QtGui import QImage, QPalette, QPixmap
 from PyQt5.QtWidgets import (QWidget, QGridLayout, QAction, QApplication, QPushButton, QLabel,
     QMainWindow, QMenu, QMessageBox, QSizePolicy)
 
-# import tis.tisgrabber as IC
+import tis.tisgrabber as IC
 
 from utils.fake_stars import FakeStars
 from utils.matplotlib_widget import MatplotlibWidget
@@ -26,7 +26,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         # TIS (The Imaging Source) CCD Camera
-        # self.Camera = IC.TIS_CAM()
+        self.Camera = IC.TIS_CAM()
         self.initCameraDroplist()
 
 
@@ -37,12 +37,11 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
         self.matplotlib_widget = MatplotlibWidget(parent=self.seeing_graph)
 
-        self.button_start.clicked.connect(self.start)
-        self.button_simulation.clicked.connect(self.simulation)
+        self.button_start.clicked.connect(self.startLiveCamera)
+        self.button_simulation.clicked.connect(self.startSimulation)
 
         # Timer for acquiring images at regular intervals
         self.acquisition_timer = QTimer(parent=self.centralwidget)
-
 
 
         # Define actions such as zoom-in, zoom-out, open camera stream, ...
@@ -54,12 +53,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         # self.resize(640, 480)
 
     def initCameraDroplist(self):
-
-        # devices = self.Camera.GetDevices()
-        # self.select_camera_button.addItems(devices)
-
-        for i in range(10):
-            self.select_camera_button.addItem(str(i))
+        devices = self.Camera.GetDevices()
+        self.select_camera_button.addItems(devices)
 
         self.select_camera_button.currentTextChanged.connect(self.selectCamera)
 
@@ -80,19 +75,41 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         print('Successfully opened camera {}'.format(Devices[camera_idx]))
 
 
-    def start(self):
+    def startLiveCamera(self):
+
+        # Disable other functionalities
+        self.button_simulation.setEnabled(False)
+
         # QMessageBox.information(self, "Camera Stream", "This functionality will soon be added")
         print('Starting live stream ...')
-        # self.Camera.StartLive(0)
-        self.Camera.StartLive(1)
+        self.Camera.StartLive(0)
+        # self.Camera.StartLive(1)
+
+        # self.resize(int(round(480. * 10. / 7.)), int(round(640. * 10. / 7.)))
+
+        self.acquisition_timer.timeout.connect(self._updateLiveCamera)
+        self.acquisition_timer.start(20)
+
+
+
+    def _updateLiveCamera(self):
 
         # Capturing a frame
         self.Camera.SnapImage()
         frame = self.Camera.GetImage()
 
+        qImage = QImage(frame.data, 480, 360, QImage.Format_Grayscale8)
 
-    def simulation(self):
+        self.stars_capture.setPixmap(QPixmap(qImage))
 
+
+    def startSimulation(self):
+
+        # Disable other functionalities
+        self.button_start.setEnabled(False)
+        self.select_camera_button.setEnabled(False)
+
+        # Define constants for the simulation
         self.THRESH         = 127       # Pixels below this value will be set to 0
 
         DIAMETER_GDIMM      = 0.06      # 6 cm
@@ -121,10 +138,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         # Generating fake images of DIMM star (One single star that is split by the DIMM)
         self.starsGenerator = FakeStars()
 
-        WIDTH, HEIGHT = self.starsGenerator.width, self.starsGenerator.height
-        # self.stars_capture.resize(WIDTH, HEIGHT)
-        print(self.gridLayout.columnStretch(0), self.gridLayout.columnStretch(1))
-        self.resize(int(round(float(HEIGHT) * 10. / 3.)), int(round(float(WIDTH) * 10. / 3.)))
+        # WIDTH, HEIGHT = self.starsGenerator.width, self.starsGenerator.height
+        # self.resize(int(round(float(HEIGHT) * 10. / 3.)), int(round(float(WIDTH) * 10. / 3.)))
 
         self.acquisition_timer.timeout.connect(self._updateSimulation)
         self.acquisition_timer.start(500)
@@ -195,15 +210,15 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
 
         qImage = QImage(frame.data, self.starsGenerator.width, self.starsGenerator.height, QImage.Format_Grayscale8)
-
         self.stars_capture.setPixmap(QPixmap(qImage))
 
-        self.scaleFactor = 1.0
-        self.fitToWindowAct.setEnabled(True)
-        self.updateActions()
 
-        if not self.fitToWindowAct.isChecked():
-            self.stars_capture.adjustSize()
+        # self.scaleFactor = 1.0
+        # self.fitToWindowAct.setEnabled(True)
+        # self.updateActions()
+
+        # if not self.fitToWindowAct.isChecked():
+        #     self.stars_capture.adjustSize()
 
 
 
@@ -233,10 +248,10 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
     def createActions(self):
         self.startAct = QAction("&Open camera stream...", self, shortcut="Ctrl+O",
-                triggered=self.start)
+                triggered=self.startLiveCamera)
 
         self.simulationAct = QAction("&Start simulation...", self, shortcut="Ctrl+S",
-                triggered=self.simulation)
+                triggered=self.startSimulation)
 
         self.exitAct = QAction("E&xit", self, shortcut="Ctrl+Q",
                 triggered=self.close)
@@ -306,10 +321,10 @@ if __name__ == '__main__':
     import sys
 
 
-    # Dev only #####################################################################################
-    from PyQt5.uic import compileUi
-    with open("./code/real-time-seeing/ui/ui_mainwindow.py", "wt") as ui_file:
-        compileUi("./code/real-time-seeing/ui/layout.ui", ui_file)
+    # # Dev only #####################################################################################
+    # from PyQt5.uic import compileUi
+    # with open("./code/real-time-seeing/ui/ui_mainwindow.py", "wt") as ui_file:
+    #     compileUi("./code/real-time-seeing/ui/layout.ui", ui_file)
 
 
     app = QApplication(sys.argv)
