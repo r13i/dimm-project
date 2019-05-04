@@ -37,7 +37,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         # TIS (The Imaging Source) CCD Camera
         if platform.system == 'Windows':
             self.Camera = IC.TIS_CAM()
-            self.initCameraDroplist()
+            # self.initCameraDroplist()
 
 
         # self.stars_capture = QLabel(parent=self.central_widget)
@@ -48,6 +48,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.matplotlib_widget = MatplotlibWidget(parent=self.seeing_graph)
 
         self.button_start.clicked.connect(self.startLiveCamera)
+        self.button_settings.clicked.connect(self.showSettings)
         self.button_simulation.clicked.connect(self.startSimulation)
 
         # Timer for acquiring images at regular intervals
@@ -62,30 +63,34 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         # self.setWindowTitle("Seeing Monitor")
         # self.resize(640, 480)
 
-    def initCameraDroplist(self):
-        devices = self.Camera.GetDevices()
-        devices = [device.decode("utf-8") for device in devices]
-        self.select_camera_button.addItems(devices)
 
-        self.select_camera_button.currentTextChanged.connect(self.selectCamera)
 
-    def selectCamera(self, camera_name):
+    # def initCameraDroplist(self):
+    #     devices = self.Camera.GetDevices()
+    #     devices = [device.decode("utf-8") for device in devices]
+    #     self.select_camera_button.addItems(devices)
+    #     self.select_camera_button.currentTextChanged.connect(self.selectCamera)
 
-        # Open camera with specific model number
-        print("Opening camera: {}".format(camera_name))
-        self.Camera.open(camera_name)
 
-        if Camera.IsDevValid() == 1:
-            print("Camera opened successfully !")
-        else:
-            raise Exception("Cannot open camera !")
 
-        # Set a video format
-        self.Camera.SetVideoFormat("RGB32 (640x480)")
-        #Set a frame rate of 30 frames per second
-        self.Camera.SetFrameRate( 30.0 )
+    # def selectCamera(self, camera_name):
+    #     # Open camera with specific model number
+    #     print("Opening camera: {}".format(camera_name))
+    #     self.Camera.open(camera_name)
 
-        print('Successfully setup camera {}'.format(camera_name))
+    #     if Camera.IsDevValid() == 1:
+    #         print("Camera opened successfully !")
+    #     else:
+    #         raise Exception("Cannot open camera !")
+
+    #     # Set a video format
+    #     self.Camera.SetVideoFormat("RGB32 (640x480)")
+    #     #Set a frame rate of 30 frames per second
+    #     self.Camera.SetFrameRate( 30.0 )
+
+    #     print('Successfully setup camera {}'.format(camera_name))
+
+
 
 
     def startLiveCamera(self):
@@ -93,7 +98,11 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         # Disable other functionalities
         self.button_simulation.setEnabled(False)
 
-        # QMessageBox.information(self, "Camera Stream", "This functionality will soon be added")
+
+        self.Camera.ShowDeviceSelectionDialog()
+        if Camera.IsDevValid() != 1:
+            raise Exception("Unable to open camera device !")
+
         print('Starting live stream ...')
         self.Camera.StartLive(0)
         # self.Camera.StartLive(1)
@@ -104,6 +113,9 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.acquisition_timer.start(20)
 
 
+    def showSettings(self):
+        self.Camera.ShowPropertyDialog()
+
 
     def _updateLiveCamera(self):
 
@@ -112,15 +124,19 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         frame = self.Camera.GetImage()
 
         qImage = QImage(frame.data, 480, 360, QImage.Format_Grayscale8)
-
         self.stars_capture.setPixmap(QPixmap(qImage))
+
+        self.image_properties.setText(self.Camera.GetImageDescription())
+        self.video_formats.setText(self.Camera.GetVideoFormats())
+
+
 
 
     def startSimulation(self):
 
         # Disable other functionalities
         self.button_start.setEnabled(False)
-        self.select_camera_button.setEnabled(False)
+        self.button_settings.setEnabled(False)
 
         # Define constants for the simulation
         self.THRESH         = 127       # Pixels below this value will be set to 0
@@ -182,39 +198,40 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         cY_star2 = int(moments_star_2["m01"] / moments_star_2["m00"])
 
 
-        # Calcul Seeing ######################################################################
-        delta_x = abs(cX_star2 - cX_star1)
-        delta_y = abs(cY_star2 - cY_star1)
+        if self.enable_seeing.isChecked():
+            # Calcul Seeing ######################################################################
+            delta_x = abs(cX_star2 - cX_star1)
+            delta_y = abs(cY_star2 - cY_star1)
 
-        self.arr_delta_x.append(delta_x)
-        self.arr_delta_y.append(delta_y)
+            self.arr_delta_x.append(delta_x)
+            self.arr_delta_y.append(delta_y)
 
-        sigma_x = np.std(self.arr_delta_x)
-        sigma_y = np.std(self.arr_delta_y)
-
-
-        # Seeing
-        epsilon_x = self.A * np.power(self.B * sigma_x, 0.2)
-        epsilon_y = self.A * np.power(self.C * sigma_y, 0.2)
-
-        # print("Time elapsed: {} sec | Maximum FPS: {}".format(elapsed, round(1.0 / elapsed)))
-
-        self.arr_epsilon_x.append(epsilon_x)
-        self.arr_epsilon_y.append(epsilon_y)
+            sigma_x = np.std(self.arr_delta_x)
+            sigma_y = np.std(self.arr_delta_y)
 
 
-        # plt.subplot(211)
-        # plt.ylim(-5, 10)
-        # plt.title("Seeing on X axis")
-        # plt.plot(self.arr_epsilon_x, c='blue')
+            # Seeing
+            epsilon_x = self.A * np.power(self.B * sigma_x, 0.2)
+            epsilon_y = self.A * np.power(self.C * sigma_y, 0.2)
 
-        # plt.subplot(212)
-        # plt.ylim(-5, 10)
-        # plt.title("Seeing on Y axis")
-        # plt.plot(self.arr_epsilon_y, c='cyan')
+            # print("Time elapsed: {} sec | Maximum FPS: {}".format(elapsed, round(1.0 / elapsed)))
 
-        # plt.tight_layout()
-        # plt.pause(1e-3)
+            self.arr_epsilon_x.append(epsilon_x)
+            self.arr_epsilon_y.append(epsilon_y)
+
+
+            plt.subplot(211)
+            plt.ylim(-5, 10)
+            plt.title("Seeing on X axis")
+            plt.plot(self.arr_epsilon_x, c='blue')
+
+            plt.subplot(212)
+            plt.ylim(-5, 10)
+            plt.title("Seeing on Y axis")
+            plt.plot(self.arr_epsilon_y, c='cyan')
+
+            plt.tight_layout()
+            plt.pause(1e-3)
 
 
         # Displaying #########################################################################
@@ -232,6 +249,9 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
         # if not self.fitToWindowAct.isChecked():
         #     self.stars_capture.adjustSize()
+
+
+
 
 
 
@@ -326,6 +346,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
     def adjustScrollBar(self, scrollBar, factor):
         scrollBar.setValue(int(factor * scrollBar.value()
                                 + ((factor - 1) * scrollBar.pageStep()/2)))
+
+
 
 
 
