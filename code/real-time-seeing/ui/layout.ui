@@ -20,13 +20,51 @@
    <property name="enabled">
     <bool>true</bool>
    </property>
-   <layout class="QGridLayout" name="gridLayout" columnstretch="7,3">
+   <layout class="QGridLayout" name="gridLayout" columnstretch="7,0">
     <property name="leftMargin">
      <number>9</number>
     </property>
     <property name="spacing">
      <number>6</number>
     </property>
+    <item row="4" column="1">
+     <layout class="QFormLayout" name="formLayout">
+      <item row="0" column="0">
+       <widget class="QLabel" name="fpsLabel">
+        <property name="text">
+         <string>Frame-rate (FPS)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="fpsLineEdit">
+        <property name="placeholderText">
+         <string>e.g. 30</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="gainLabel">
+        <property name="text">
+         <string>Gain</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QSlider" name="gainSlider">
+        <property name="value">
+         <number>50</number>
+        </property>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="tickPosition">
+         <enum>QSlider::TicksBelow</enum>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
     <item row="0" column="0" rowspan="5">
      <widget class="QLabel" name="stars_capture">
       <property name="palette">
@@ -458,6 +496,9 @@
       </property>
      </widget>
     </item>
+    <item row="5" column="0">
+     <widget class="QWidget" name="seeing_graph" native="true"/>
+    </item>
     <item row="0" column="1">
      <widget class="QPushButton" name="button_start">
       <property name="enabled">
@@ -479,9 +520,6 @@
        <bool>false</bool>
       </property>
      </widget>
-    </item>
-    <item row="5" column="0">
-     <widget class="QWidget" name="seeing_graph" native="true"/>
     </item>
     <item row="1" column="1">
      <widget class="QPushButton" name="button_simulation">

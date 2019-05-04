@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from collections import deque
 from time import clock
 import numpy as np
@@ -11,12 +9,23 @@ from PyQt5.QtGui import QImage, QPalette, QPixmap
 from PyQt5.QtWidgets import (QWidget, QGridLayout, QAction, QApplication, QPushButton, QLabel,
     QMainWindow, QMenu, QMessageBox, QSizePolicy)
 
-import tis.tisgrabber as IC
+
+# Dev only #####################################################################################
+import platform
+if platform.system() == 'Windows':
+    import tis.tisgrabber as IC
+    from ui.ui_mainwindow import Ui_MainWindow
+
+elif platform.system() == 'Linux':
+    from PyQt5.uic import compileUi
+    with open("./code/real-time-seeing/ui/ui_mainwindow.py", "wt") as ui_file:
+        compileUi("./code/real-time-seeing/ui/layout.ui", ui_file)
+    from ui.ui_mainwindow import Ui_MainWindow
+
 
 from utils.fake_stars import FakeStars
 from utils.matplotlib_widget import MatplotlibWidget
 
-from ui.ui_mainwindow import Ui_MainWindow
 
 
 class SeeingMonitor(QMainWindow, Ui_MainWindow):
@@ -26,8 +35,9 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         # TIS (The Imaging Source) CCD Camera
-        self.Camera = IC.TIS_CAM()
-        self.initCameraDroplist()
+        if platform.system == 'Windows':
+            self.Camera = IC.TIS_CAM()
+            self.initCameraDroplist()
 
 
         # self.stars_capture = QLabel(parent=self.central_widget)
@@ -54,25 +64,28 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
     def initCameraDroplist(self):
         devices = self.Camera.GetDevices()
+        devices = [device.decode("utf-8") for device in devices]
         self.select_camera_button.addItems(devices)
 
         self.select_camera_button.currentTextChanged.connect(self.selectCamera)
 
     def selectCamera(self, camera_name):
-        ############################################################################
-        WIDTH  = "640"
-        HEIGHT = "480"
 
         # Open camera with specific model number
+        print("Opening camera: {}".format(camera_name))
         self.Camera.open(camera_name)
+
+        if Camera.IsDevValid() == 1:
+            print("Camera opened successfully !")
+        else:
+            raise Exception("Cannot open camera !")
+
         # Set a video format
-        self.Camera.SetVideoFormat("RGB32 ({width}x{height})".format(width=WIDTH, height=HEIGHT))
+        self.Camera.SetVideoFormat("RGB32 (640x480)")
         #Set a frame rate of 30 frames per second
         self.Camera.SetFrameRate( 30.0 )
 
-        self.stars_capture.resize(WIDTH, HEIGHT)
-
-        print('Successfully opened camera {}'.format(Devices[camera_idx]))
+        print('Successfully setup camera {}'.format(camera_name))
 
 
     def startLiveCamera(self):
@@ -319,13 +332,6 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 if __name__ == '__main__':
 
     import sys
-
-
-    # # Dev only #####################################################################################
-    # from PyQt5.uic import compileUi
-    # with open("./code/real-time-seeing/ui/ui_mainwindow.py", "wt") as ui_file:
-    #     compileUi("./code/real-time-seeing/ui/layout.ui", ui_file)
-
 
     app = QApplication(sys.argv)
     seeingMonitor = SeeingMonitor()
