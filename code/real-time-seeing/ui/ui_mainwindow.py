@@ -196,9 +196,9 @@ class Ui_MainWindow(object):
         self.line_2.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.line_2.setObjectName("line_2")
         self.gridLayout.addWidget(self.line_2, 4, 1, 1, 1)
-        self.label = QtWidgets.QLabel(self.centralwidget)
-        self.label.setObjectName("label")
-        self.gridLayout.addWidget(self.label, 7, 1, 1, 1)
+        self.video_formats = QtWidgets.QLabel(self.centralwidget)
+        self.video_formats.setObjectName("video_formats")
+        self.gridLayout.addWidget(self.video_formats, 7, 1, 1, 1)
         self.gridLayout.setColumnStretch(0, 7)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
@@ -224,6 +224,6 @@ class Ui_MainWindow(object):
         self.button_start.setText(_translate("MainWindow", "▶ Start"))
         self.image_properties.setText(_translate("MainWindow", "Image properties :"))
         self.button_settings.setText(_translate("MainWindow", "⚙Settings"))
-        self.label.setText(_translate("MainWindow", "Video Formats :"))
+        self.video_formats.setText(_translate("MainWindow", "Video Formats :"))
 
 

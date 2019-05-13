@@ -1,5 +1,4 @@
 from collections import deque
-from time import clock
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
@@ -9,18 +8,28 @@ from PyQt5.QtGui import QImage, QPalette, QPixmap
 from PyQt5.QtWidgets import (QWidget, QGridLayout, QAction, QApplication, QPushButton, QLabel,
     QMainWindow, QMenu, QMessageBox, QSizePolicy)
 
+from qimage2ndarray import array2qimage, gray2qimage
 
-# Dev only #####################################################################################
+
+# Dev only ########################################################
 import platform
-if platform.system() == 'Windows':
-    import tis.tisgrabber as IC
-    from ui.ui_mainwindow import Ui_MainWindow
-
-elif platform.system() == 'Linux':
+if platform.system() == 'Linux':
     from PyQt5.uic import compileUi
     with open("./code/real-time-seeing/ui/ui_mainwindow.py", "wt") as ui_file:
         compileUi("./code/real-time-seeing/ui/layout.ui", ui_file)
     from ui.ui_mainwindow import Ui_MainWindow
+else:
+    from ui.ui_mainwindow import Ui_MainWindow
+    import tis.tisgrabber as IC
+    import ctypes as C
+
+    lWidth          = C.c_long()
+    lHeight         = C.c_long()
+    iBitsPerPixel   = C.c_int()
+    COLORFORMAT     = C.c_int()
+
+
+
 
 
 from utils.fake_stars import FakeStars
@@ -31,21 +40,14 @@ from utils.matplotlib_widget import MatplotlibWidget
 class SeeingMonitor(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super(SeeingMonitor, self).__init__()
-
         self.setupUi(self)
 
         # TIS (The Imaging Source) CCD Camera
-        if platform.system == 'Windows':
+        if platform.system() != 'Linux':
             self.Camera = IC.TIS_CAM()
             # self.initCameraDroplist()
 
-
-        # self.stars_capture = QLabel(parent=self.central_widget)
-        # self.stars_capture.setBackgroundRole(QPalette.Base)
-        # self.stars_capture.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        # self.stars_capture.setScaledContents(True)
-
-        self.matplotlib_widget = MatplotlibWidget(parent=self.seeing_graph)
+        self.matplotlib_widget = MatplotlibWidget(parent=self.seeing_graph, width=7, height=1)
 
         self.button_start.clicked.connect(self.startLiveCamera)
         self.button_settings.clicked.connect(self.showSettings)
@@ -55,44 +57,6 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.acquisition_timer = QTimer(parent=self.centralwidget)
 
 
-        # Define actions such as zoom-in, zoom-out, open camera stream, ...
-        self.createActions()
-        # Create menus with the actions
-        self.createMenus()
-
-        # self.setWindowTitle("Seeing Monitor")
-        # self.resize(640, 480)
-
-
-
-    # def initCameraDroplist(self):
-    #     devices = self.Camera.GetDevices()
-    #     devices = [device.decode("utf-8") for device in devices]
-    #     self.select_camera_button.addItems(devices)
-    #     self.select_camera_button.currentTextChanged.connect(self.selectCamera)
-
-
-
-    # def selectCamera(self, camera_name):
-    #     # Open camera with specific model number
-    #     print("Opening camera: {}".format(camera_name))
-    #     self.Camera.open(camera_name)
-
-    #     if Camera.IsDevValid() == 1:
-    #         print("Camera opened successfully !")
-    #     else:
-    #         raise Exception("Cannot open camera !")
-
-    #     # Set a video format
-    #     self.Camera.SetVideoFormat("RGB32 (640x480)")
-    #     #Set a frame rate of 30 frames per second
-    #     self.Camera.SetFrameRate( 30.0 )
-
-    #     print('Successfully setup camera {}'.format(camera_name))
-
-
-
-
     def startLiveCamera(self):
 
         # Disable other functionalities
@@ -100,20 +64,24 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
 
         self.Camera.ShowDeviceSelectionDialog()
-        if Camera.IsDevValid() != 1:
+        if self.Camera.IsDevValid() != 1:
             raise Exception("Unable to open camera device !")
 
         print('Starting live stream ...')
         self.Camera.StartLive(0)
         # self.Camera.StartLive(1)
 
-        # self.resize(int(round(480. * 10. / 7.)), int(round(640. * 10. / 7.)))
-
         self.acquisition_timer.timeout.connect(self._updateLiveCamera)
         self.acquisition_timer.start(20)
 
 
     def showSettings(self):
+        print("Is Device Valid ? ", self.Camera.IsDevValid())
+        if not self.Camera.IsDevValid():
+            QMessageBox.warning(self, "Camera Selection Error",
+                "Please select a camera first by clicking on the button <strong>Start</strong>")
+            return -1
+
         self.Camera.ShowPropertyDialog()
 
 
@@ -122,13 +90,12 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         # Capturing a frame
         self.Camera.SnapImage()
         frame = self.Camera.GetImage()
+        frame = cv2.resize(frame, (640, 480))
 
-        qImage = QImage(frame.data, 480, 360, QImage.Format_Grayscale8)
+        print('>>>>>> Image captured')
+
+        qImage = array2qimage(frame)
         self.stars_capture.setPixmap(QPixmap(qImage))
-
-        self.image_properties.setText(self.Camera.GetImageDescription())
-        self.video_formats.setText(self.Camera.GetVideoFormats())
-
 
 
 
@@ -177,26 +144,22 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
     def _updateSimulation(self):
 
         frame = self.starsGenerator.generate()
-        gray = frame
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        # Fast thresholding
         _, thresholded = cv2.threshold(gray, self.THRESH, 255, cv2.THRESH_TOZERO)
 
-        # # Slow thresholding
-        # thresholded = np.where(gray > self.THRESH, gray, 0)
+        # _, contours, hierarchy = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        _, contours, hierarchy = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        # cv2.drawContours(frame, contours, -1, (0,0,255), 2)
 
-        star_1 = thresholded[:, : thresholded.shape[1] // 2]
-        star_2 = thresholded[:, thresholded.shape[1] // 2 :]
-
-        moments_star_1 = cv2.moments(star_1)
-        moments_star_2 = cv2.moments(star_2)
+        moments_star_1 = cv2.moments(contours[0])
+        moments_star_2 = cv2.moments(contours[1])
 
         cX_star1 = int(moments_star_1["m10"] / moments_star_1["m00"])
         cY_star1 = int(moments_star_1["m01"] / moments_star_1["m00"])
 
-        cX_star2 = int(moments_star_2["m10"] / moments_star_2["m00"]) + frame.shape[1] // 2
+        cX_star2 = int(moments_star_2["m10"] / moments_star_2["m00"]) # + frame.shape[1] // 2
         cY_star2 = int(moments_star_2["m01"] / moments_star_2["m00"])
-
 
         if self.enable_seeing.isChecked():
             # Calcul Seeing ######################################################################
@@ -219,135 +182,29 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
             self.arr_epsilon_x.append(epsilon_x)
             self.arr_epsilon_y.append(epsilon_y)
 
+            self.matplotlib_widget.plot(self.arr_epsilon_x)
 
-            plt.subplot(211)
-            plt.ylim(-5, 10)
-            plt.title("Seeing on X axis")
-            plt.plot(self.arr_epsilon_x, c='blue')
 
-            plt.subplot(212)
-            plt.ylim(-5, 10)
-            plt.title("Seeing on Y axis")
-            plt.plot(self.arr_epsilon_y, c='cyan')
+            # plt.subplot(211)
+            # plt.ylim(-5, 10)
+            # plt.title("Seeing on X axis")
+            # plt.plot(self.arr_epsilon_x, c='blue')
 
-            plt.tight_layout()
-            plt.pause(1e-3)
+            # plt.subplot(212)
+            # plt.ylim(-5, 10)
+            # plt.title("Seeing on Y axis")
+            # plt.plot(self.arr_epsilon_y, c='cyan')
+
+            # plt.tight_layout()
+            # plt.pause(1e-3)
 
 
         # Displaying #########################################################################
-        cv2.drawMarker(frame, (cX_star1, cY_star1), color=(127, 0, 0), markerSize=30, thickness=1)
-        cv2.drawMarker(frame, (cX_star2, cY_star2), color=(127, 0, 0), markerSize=30, thickness=1)
+        cv2.drawMarker(frame, (cX_star1, cY_star1), color=(255, 0, 0), markerSize=30, thickness=1)
+        cv2.drawMarker(frame, (cX_star2, cY_star2), color=(0, 0, 255), markerSize=30, thickness=1)
 
-
-        qImage = QImage(frame.data, self.starsGenerator.width, self.starsGenerator.height, QImage.Format_Grayscale8)
+        qImage = array2qimage(frame)
         self.stars_capture.setPixmap(QPixmap(qImage))
-
-
-        # self.scaleFactor = 1.0
-        # self.fitToWindowAct.setEnabled(True)
-        # self.updateActions()
-
-        # if not self.fitToWindowAct.isChecked():
-        #     self.stars_capture.adjustSize()
-
-
-
-
-
-
-    # Zoom +25%
-    def zoomIn(self):
-        self.scaleImage(1.25)
-
-    # Zoom -25%
-    def zoomOut(self):
-        self.scaleImage(0.8)
-
-    def normalSize(self):
-        self.stars_capture.adjustSize()
-        self.scaleFactor = 1.0
-
-    def fitToWindow(self):
-        fitToWindow = self.fitToWindowAct.isChecked()
-        self.scrollArea.setWidgetResizable(fitToWindow)
-        if not fitToWindow:
-            self.normalSize()
-
-        self.updateActions()
-
-    def about(self):
-        QMessageBox.about(self, "About Seeing Monitor",
-                "<p>Version 1.0</p>")
-
-    def createActions(self):
-        self.startAct = QAction("&Open camera stream...", self, shortcut="Ctrl+O",
-                triggered=self.startLiveCamera)
-
-        self.simulationAct = QAction("&Start simulation...", self, shortcut="Ctrl+S",
-                triggered=self.startSimulation)
-
-        self.exitAct = QAction("E&xit", self, shortcut="Ctrl+Q",
-                triggered=self.close)
-
-        self.zoomInAct = QAction("Zoom &In (25%)", self, shortcut="Ctrl++",
-                enabled=False, triggered=self.zoomIn)
-
-        self.zoomOutAct = QAction("Zoom &Out (25%)", self, shortcut="Ctrl+-",
-                enabled=False, triggered=self.zoomOut)
-
-        self.normalSizeAct = QAction("&Normal Size", self, shortcut="Ctrl+S",
-                enabled=False, triggered=self.normalSize)
-
-        self.fitToWindowAct = QAction("&Fit to Window", self, enabled=False,
-                checkable=True, shortcut="Ctrl+F", triggered=self.fitToWindow)
-
-        self.aboutAct = QAction("&About", self, triggered=self.about)
-
-        self.aboutQtAct = QAction("About &Qt", self,
-                triggered=QApplication.instance().aboutQt)
-
-    def createMenus(self):
-        self.fileMenu = QMenu("&Start", self)
-        self.fileMenu.addAction(self.startAct)
-        self.fileMenu.addAction(self.simulationAct)
-        self.fileMenu.addSeparator()
-        self.fileMenu.addAction(self.exitAct)
-
-        self.viewMenu = QMenu("&View", self)
-        self.viewMenu.addAction(self.zoomInAct)
-        self.viewMenu.addAction(self.zoomOutAct)
-        self.viewMenu.addAction(self.normalSizeAct)
-        self.viewMenu.addSeparator()
-        self.viewMenu.addAction(self.fitToWindowAct)
-
-        self.helpMenu = QMenu("&Help", self)
-        self.helpMenu.addAction(self.aboutAct)
-        self.helpMenu.addAction(self.aboutQtAct)
-
-        self.menuBar().addMenu(self.fileMenu)
-        self.menuBar().addMenu(self.viewMenu)
-        self.menuBar().addMenu(self.helpMenu)
-
-    def updateActions(self):
-        self.zoomInAct.setEnabled(not self.fitToWindowAct.isChecked())
-        self.zoomOutAct.setEnabled(not self.fitToWindowAct.isChecked())
-        self.normalSizeAct.setEnabled(not self.fitToWindowAct.isChecked())
-
-    def scaleImage(self, factor):
-        self.scaleFactor *= factor
-        self.stars_capture.resize(self.scaleFactor * self.stars_capture.pixmap().size())
-
-        self.adjustScrollBar(self.scrollArea.horizontalScrollBar(), factor)
-        self.adjustScrollBar(self.scrollArea.verticalScrollBar(), factor)
-
-        self.zoomInAct.setEnabled(self.scaleFactor < 3.0)
-        self.zoomOutAct.setEnabled(self.scaleFactor > 0.333)
-
-    def adjustScrollBar(self, scrollBar, factor):
-        scrollBar.setValue(int(factor * scrollBar.value()
-                                + ((factor - 1) * scrollBar.pageStep()/2)))
-
-
 
 
 

@@ -2,16 +2,26 @@
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
-class MatplotlibWidget(QWidget):
-    def __init__(self, parent=None):
-        super(MatplotlibWidget, self).__init__(parent)
+class MatplotlibWidget(FigureCanvasQTAgg):
+    def __init__(self, parent=None, width=5, height=5, dpi=100):
+        # super(MatplotlibWidget, self).__init__(parent)
 
-        self.figure = Figure()
-        self.canvas = FigureCanvasQTAgg(self.figure)
+        fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = fig.add_subplot(111)
 
-        self.axis = self.figure.add_subplot(111)
+        FigureCanvasQTAgg.__init__(self, fig)
+        self.setParent(parent)
 
-        self.layoutVertical = QVBoxLayout(self)
-        self.layoutVertical.addWidget(self.canvas)
+        FigureCanvasQTAgg.setSizePolicy(self,
+                QSizePolicy.Expanding,
+                QSizePolicy.Expanding)
+        FigureCanvasQTAgg.updateGeometry(self)
+
+    def plot(self, data):
+        print(data)
+        self.axes.plot(data, 'r-')
+        self.axes.set_title('PyQt Matplotlib Example')
+        self.draw()
+        # plt.pause(1e-3)
