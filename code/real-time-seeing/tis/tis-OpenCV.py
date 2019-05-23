@@ -60,7 +60,7 @@ if Camera.IsDevValid() == 1:
     Camera.GetPropertySwitch("Exposure","Auto",ExposureAuto)
     print("Exposure auto : ", ExposureAuto[0])
 
-    
+
     # In order to set a fixed exposure time, the Exposure Automatic must be disabled first.
     # Using the IC Imaging Control VCD Property Inspector, we know, the item is "Exposure", the
     # element is "Auto" and the interface is "Switch". Therefore we use for disabling:
@@ -112,12 +112,12 @@ if Camera.IsDevValid() == 1:
             gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             img = exposure.rescale_intensity(gray)
 
-            # Method 1 : whitout threshold
+            # Method 1 : without threshold
             local_maxima = extrema.local_maxima(img)
             label_maxima = label(local_maxima)
             overlay = color.label2rgb(label_maxima, img, alpha=0.7, bg_label=0, bg_color=None, colors=[(1, 0, 0)])
 
-            # Method 2 : whit threshold 'h'
+            # Method 2 : with threshold 'h'
             h = 0.05    # Increase value to have a higher threshold (e.g. set to 0.1)
             h_maxima = extrema.h_maxima(img, h)
             label_h_maxima = label(h_maxima)

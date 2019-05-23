@@ -20,27 +20,13 @@
    <property name="enabled">
     <bool>true</bool>
    </property>
-   <layout class="QGridLayout" name="gridLayout" columnstretch="7,0">
+   <layout class="QGridLayout" name="gridLayout" columnstretch="2,0">
     <property name="leftMargin">
      <number>9</number>
     </property>
     <property name="spacing">
      <number>6</number>
     </property>
-    <item row="5" column="1">
-     <widget class="QCheckBox" name="enable_seeing">
-      <property name="text">
-       <string>Seeing monitoring</string>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="1">
-     <widget class="QPushButton" name="button_settings">
-      <property name="text">
-       <string>⚙Settings</string>
-      </property>
-     </widget>
-    </item>
     <item row="3" column="1">
      <widget class="QPushButton" name="button_simulation">
       <property name="toolTip">
@@ -54,32 +40,130 @@
       </property>
      </widget>
     </item>
-    <item row="7" column="0">
+    <item row="8" column="0">
      <widget class="QWidget" name="seeing_graph" native="true"/>
     </item>
-    <item row="0" column="1">
-     <widget class="QPushButton" name="button_start">
-      <property name="enabled">
-       <bool>true</bool>
-      </property>
-      <property name="toolTip">
-       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Start camera and real-time seeing monitoring&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-      </property>
-      <property name="whatsThis">
-       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Start camera and real-time seeing monitoring&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-      </property>
-      <property name="text">
-       <string>▶ Start</string>
-      </property>
-      <property name="checkable">
-       <bool>false</bool>
-      </property>
-      <property name="checked">
-       <bool>false</bool>
+    <item row="6" column="1">
+     <widget class="Line" name="line_3">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
       </property>
      </widget>
     </item>
-    <item row="0" column="0" rowspan="7">
+    <item row="7" column="1">
+     <layout class="QFormLayout" name="formLayout_2">
+      <item row="1" column="0">
+       <widget class="QCheckBox" name="checkBox">
+        <property name="layoutDirection">
+         <enum>Qt::RightToLeft</enum>
+        </property>
+        <property name="text">
+         <string>Exposure (auto)</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QDoubleSpinBox" name="doubleSpinBox"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QCheckBox" name="checkBox_2">
+        <property name="layoutDirection">
+         <enum>Qt::RightToLeft</enum>
+        </property>
+        <property name="text">
+         <string>Gain (auto)</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QSpinBox" name="spinBox"/>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>White Balance:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Red</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>Green</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QLabel" name="label_4">
+        <property name="text">
+         <string>Blue</string>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="1">
+       <widget class="QSlider" name="horizontalSlider">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="1">
+       <widget class="QSlider" name="horizontalSlider_2">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="1">
+       <widget class="QSlider" name="horizontalSlider_3">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_5">
+        <property name="text">
+         <string>TextLabel</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item row="4" column="1">
+     <widget class="Line" name="line_2">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="1">
+     <widget class="Line" name="line">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+     </widget>
+    </item>
+    <item row="5" column="1">
+     <widget class="QCheckBox" name="enable_seeing">
+      <property name="text">
+       <string>Enable seeing monitoring</string>
+      </property>
+     </widget>
+    </item>
+    <item row="0" column="0" rowspan="8">
      <widget class="QLabel" name="stars_capture">
       <property name="palette">
        <palette>
@@ -510,17 +594,32 @@
       </property>
      </widget>
     </item>
-    <item row="2" column="1">
-     <widget class="Line" name="line">
-      <property name="orientation">
-       <enum>Qt::Horizontal</enum>
+    <item row="0" column="1">
+     <widget class="QPushButton" name="button_start">
+      <property name="enabled">
+       <bool>true</bool>
+      </property>
+      <property name="toolTip">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Start camera and real-time seeing monitoring&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
+      <property name="whatsThis">
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Start camera and real-time seeing monitoring&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      </property>
+      <property name="text">
+       <string>▶ Start</string>
+      </property>
+      <property name="checkable">
+       <bool>false</bool>
+      </property>
+      <property name="checked">
+       <bool>false</bool>
       </property>
      </widget>
     </item>
-    <item row="4" column="1">
-     <widget class="Line" name="line_2">
-      <property name="orientation">
-       <enum>Qt::Horizontal</enum>
+    <item row="1" column="1">
+     <widget class="QPushButton" name="button_settings">
+      <property name="text">
+       <string>⚙Settings</string>
       </property>
      </widget>
     </item>

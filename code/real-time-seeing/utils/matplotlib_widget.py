@@ -20,8 +20,8 @@ class MatplotlibWidget(FigureCanvasQTAgg):
         FigureCanvasQTAgg.updateGeometry(self)
 
     def plot(self, data):
-        print(data)
+        self.axes.clear()
         self.axes.plot(data, 'r-')
-        self.axes.set_title('PyQt Matplotlib Example')
+        # self.axes.set_title('PyQt Matplotlib Example')
         self.draw()
         # plt.pause(1e-3)
