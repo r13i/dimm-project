@@ -5,13 +5,15 @@ from matplotlib.figure import Figure
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
 
 class MatplotlibWidget(FigureCanvasQTAgg):
-    def __init__(self, parent=None, width=5, height=5, dpi=100):
-        # super(MatplotlibWidget, self).__init__(parent)
+    def __init__(self, parent=None, width=6.4, height=3.6, dpi=100):
+        self.fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = [
+            self.fig.add_subplot(211),       # Graph 1
+            self.fig.add_subplot(212)        # Graph 2
+        ]
+        self.fig.tight_layout()
 
-        fig = Figure(figsize=(width, height), dpi=dpi)
-        self.axes = fig.add_subplot(111)
-
-        FigureCanvasQTAgg.__init__(self, fig)
+        FigureCanvasQTAgg.__init__(self, self.fig)
         self.setParent(parent)
 
         FigureCanvasQTAgg.setSizePolicy(self,
@@ -19,9 +21,10 @@ class MatplotlibWidget(FigureCanvasQTAgg):
                 QSizePolicy.Expanding)
         FigureCanvasQTAgg.updateGeometry(self)
 
-    def plot(self, data):
-        self.axes.clear()
-        self.axes.plot(data, 'r-')
-        # self.axes.set_title('PyQt Matplotlib Example')
+    def plot(self, data, position=0):
+        self.axes[position].clear()
+        self.axes[position].plot(data, 'r-')
+        # self.axes[position].set_title('PyQt Matplotlib Example')
         self.draw()
+        self.fig.tight_layout()
         # plt.pause(1e-3)
