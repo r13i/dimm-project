@@ -13,11 +13,6 @@ import tisgrabber as IC
 import cv2
 import numpy as np
 
-from skimage.measure import label
-from skimage import color
-from skimage.morphology import extrema
-from skimage import exposure
-
 
 lWidth=C.c_long()
 lHeight= C.c_long()
@@ -60,7 +55,7 @@ if Camera.IsDevValid() == 1:
     Camera.GetPropertySwitch("Exposure","Auto",ExposureAuto)
     print("Exposure auto : ", ExposureAuto[0])
 
-
+    
     # In order to set a fixed exposure time, the Exposure Automatic must be disabled first.
     # Using the IC Imaging Control VCD Property Inspector, we know, the item is "Exposure", the
     # element is "Auto" and the interface is "Switch". Therefore we use for disabling:
@@ -106,32 +101,9 @@ if Camera.IsDevValid() == 1:
             # Apply some OpenCV function on this image
             image = cv2.flip(image,0)
             image = cv2.erode(image,np.ones((11, 11)))
-
-
-            # Processing to detect stars
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            img = exposure.rescale_intensity(gray)
-
-            # Method 1 : without threshold
-            local_maxima = extrema.local_maxima(img)
-            label_maxima = label(local_maxima)
-            overlay = color.label2rgb(label_maxima, img, alpha=0.7, bg_label=0, bg_color=None, colors=[(1, 0, 0)])
-
-            # Method 2 : with threshold 'h'
-            h = 0.05    # Increase value to have a higher threshold (e.g. set to 0.1)
-            h_maxima = extrema.h_maxima(img, h)
-            label_h_maxima = label(h_maxima)
-            overlay_h = color.label2rgb(label_h_maxima, img, alpha=0.7, bg_label=0, bg_color=None, colors=[(1, 0, 0)])
-
-            cv2.imshow('Original Image', image)
-            cv2.imshow('Stars Detection without height threshold', overlay)
-            cv2.imshow('Stars Detection with height threshold', overlay_h)
-            if cv2.waitKey(10) & 0xFF == ord('q'):
-                break
-
-        Camera.StopLive()    
-        cv2.destroyWindow('Window')
-
+            cv2.imshow('Window', image)
+            cv2.waitKey(10)
+           
     except KeyboardInterrupt:
         Camera.StopLive()    
         cv2.destroyWindow('Window')

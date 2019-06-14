@@ -26,5 +26,5 @@ class MatplotlibWidget(FigureCanvasQTAgg):
         self.axes[position].plot(data, 'r-')
         # self.axes[position].set_title('PyQt Matplotlib Example')
         self.draw()
-        self.fig.tight_layout()
+        # self.fig.tight_layout()
         # plt.pause(1e-3)

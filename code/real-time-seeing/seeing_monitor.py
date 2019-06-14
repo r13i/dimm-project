@@ -1,6 +1,9 @@
 from collections import deque
 import logging
 import traceback
+import time
+from os.path import splitext
+import threading
 
 import numpy as np
 import cv2
@@ -33,12 +36,17 @@ else:
     COLORFORMAT     = C.c_int()
 
 
-
-
-
 from utils.fake_stars import FakeStars
 from utils.matplotlib_widget import MatplotlibWidget
 
+
+class CallbackUserData(C.Structure):
+    """ Example for user data passed to the callback function. """
+    def __init__(self):
+        self.width = 0
+        self.height = 0
+        self.iBitsPerPixel = 0
+        self.buffer_size = 0
 
 
 class SeeingMonitor(QMainWindow, Ui_MainWindow):
@@ -46,22 +54,22 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         super(SeeingMonitor, self).__init__()
         self.setupUi(self)
 
-        # TIS (The Imaging Source) CCD Camera
-        if platform.system() != 'Linux':
-            self.initCamera()
+        self.Camera = None
 
         self.video_source = VideoSource.NONE
+        self.export_video = False
 
-        self.matplotlib_widget = MatplotlibWidget(parent=self.seeing_graph, width=6.4, height=3.6, dpi=100)
+        self.matplotlib_widget = MatplotlibWidget(parent=self.seeing_graph, width=6.4, height=1.8, dpi=100)
+
+        if platform.system() == 'Linux':
+            self.button_start.setEnabled(False)
 
         self.button_start.clicked.connect(self.startLiveCamera)
-        # self.button_settings.clicked.connect(self.showSettings)
-        self.button_settings.setEnabled(False)
+        self.button_settings.clicked.connect(self.showSettings)
         self.button_simulation.clicked.connect(self.startSimulation)
 
         self.button_import.clicked.connect(self.importVideo)
         self.button_export.clicked.connect(self.exportVideo)
-
 
         # Timer for acquiring images at regular intervals
         self.acquisition_timer = QTimer(parent=self.centralwidget)
@@ -94,38 +102,117 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.arr_epsilon_y = deque(maxlen=10)
 
 
-    def initCamera(self):
+        #################################################################################################################
+        self.startLiveCamera()
+
+
+    def closeEvent(self, event):
+        try:
+            self.Camera.StopLive()
+        except AttributeError:
+            pass
+
+        try:
+            self.cap.release()
+        except AttributeError:
+            pass
+
+        try:
+            self.video_writer.release()
+        except AttributeError:
+            pass
+
+        event.accept()
+
+
+    def _callbackFunction(self, hGrabber, pBuffer, framenumber, pData):
+        """ This is an example callback function for image processig  with 
+            opencv. The image data in pBuffer is converted into a cv Matrix
+            and with cv.mean() the average brightness of the image is
+            measuered.
+
+        :param: hGrabber: This is the real pointer to the grabber object.
+        :param: pBuffer : Pointer to the first pixel's first byte
+        :param: framenumber : Number of the frame since the stream started
+        :param: pData : Pointer to additional user data structure
+        """
+        if pData.buffer_size > 0:
+            image = C.cast(pBuffer, C.POINTER(C.c_ubyte * pData.buffer_size))
+
+            cvMat = np.ndarray(
+                buffer = image.contents,
+                dtype  = np.uint8,
+                shape  = (pData.height, pData.width, pData.iBitsPerPixel)
+            )
+
+            frame = np.uint8(cvMat)
+            self.frame = cv2.resize(frame, (640, 480))
+            self._monitor()
+
+
+    def _startLiveCamera(self):
+
+        # Create a function pointer
+        Callbackfunc = IC.TIS_GrabberDLL.FRAMEREADYCALLBACK(self._callbackFunction)
+        ImageDescription = CallbackUserData()    
+
+        # Create the camera object.
         self.Camera = IC.TIS_CAM()
 
-        # self.Camera.SetPropertySwitch("Exposure","Auto",1)
-        # self.Camera.SetPropertySwitch("Gain","Auto",1)
-        # self.Camera.SetPropertySwitch("WhiteBalance","Auto",1)
+        self.Camera.ShowDeviceSelectionDialog()
+        if self.Camera.IsDevValid() != 1:
+            print("[Error Camera Selection] Couldn't open camera device !")
+            # QMessageBox.warning(self, "Error Camera Selection", "Couldn't open camera device !")
+            # raise Exception("Unable to open camera device !")
+            return
+
+        # Now pass the function pointer and our user data to the library
+        self.Camera.SetFrameReadyCallback(Callbackfunc, ImageDescription)
+
+        # Handle each incoming frame automatically
+        self.Camera.SetContinuousMode(0)
+
+        print('Starting live stream ...')
+        self.Camera.StartLive(0)    ####### PAUSE LIVE STREAM WHEN PAUSE CLICKED ??? ##############################################
+        # self.Camera.StartLive(1)
+
+        Imageformat = self.Camera.GetImageDescription()[:3]
+        ImageDescription.width = Imageformat[0]
+        ImageDescription.height= Imageformat[1]
+        ImageDescription.iBitsPerPixel=Imageformat[2]//8
+        ImageDescription.buffer_size = ImageDescription.width * ImageDescription.height * ImageDescription.iBitsPerPixel
+
+        while self.video_source == VideoSource.CAMERA:
+            pass
+
+        # self.timer_interval = 20
+        # try:
+        #     self.acquisition_timer.disconnect()
+        # except TypeError:
+        #     pass
+        # self.acquisition_timer.timeout.connect(self._updateLiveCamera)
+        # self.acquisition_timer.start(self.timer_interval)
 
 
     def startLiveCamera(self):
+        try:
+            self.acquisition_timer.disconnect()
+        except TypeError:
+            pass
 
         self.video_source = VideoSource.CAMERA
+        self.button_export.setEnabled(True)
         self._setPauseButton()
 
         # Disable other functionalities
         # self.button_simulation.setEnabled(False)
 
-        self.Camera.ShowDeviceSelectionDialog()
-        if self.Camera.IsDevValid() != 1:
-            QMessageBox.warning(self, "Error Camera Selection", "Unable to open camera device !")
-            raise Exception("Unable to open camera device !")
+        t = threading.Thread(target=self._startLiveCamera, args=(), daemon=True)
+        t.start()
 
-        print('Starting live stream ...')
-        self.Camera.StartLive(0)    ####### PAUSE LIVE STREAM FOR PAUSE ??? ##############################################
-        # self.Camera.StartLive(1)
-
-        self.timer_interval = 20
-        self.acquisition_timer.timeout.connect(self._updateLiveCamera)
-        self.acquisition_timer.start(self.timer_interval)
 
 
     def showSettings(self):
-        print("Is Device Valid ? ", self.Camera.IsDevValid())
         if not self.Camera.IsDevValid():
             QMessageBox.warning(self, "Camera Selection Error",
                 "Please select a camera first by clicking on the button <strong>Start</strong>")
@@ -144,11 +231,9 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         frame = self.Camera.GetImage()
         frame = np.uint8(frame)
         self.frame = cv2.resize(frame, (640, 480))
-
-        print('>>>>>> camera captured')
-
         self._monitor()
-        self.displayParameters()
+
+        # self.displayParameters()
 
 
     def displayParameters(self):
@@ -168,7 +253,10 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
     def startSimulation(self):
 
+        if self.Camera != None and self.Camera.IsDevValid() == 1:
+            self.Camera.StopLive()
         self.video_source = VideoSource.SIMULATION
+        self.button_export.setEnabled(True)
         self._setPauseButton()
 
 
@@ -183,117 +271,173 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         # self.resize(int(round(float(HEIGHT) * 10. / 3.)), int(round(float(WIDTH) * 10. / 3.)))
 
         self.timer_interval = 100
+        try:
+            self.acquisition_timer.disconnect()
+        except TypeError:
+            pass
         self.acquisition_timer.timeout.connect(self._updateSimulation)
         self.acquisition_timer.start(self.timer_interval)
 
 
 
     def _updateSimulation(self):
-        self.frame = self.starsGenerator.generate()
+        frame = self.starsGenerator.generate()
+        self.frame = cv2.resize(frame, (640, 480))
         self._monitor()
 
 
     def _monitor(self):
+
+        # ExposureTime=[0]
+        # self.Camera.GetPropertyAbsoluteValue("Exposure","Value",ExposureTime)
+
+        # Gain=[0]
+        # self.Camera.GetPropertyValue("Gain","Value",Gain)
+
+        # Red=[0]
+        # Green=[0]
+        # Blue=[0]
+        # self.Camera.GetPropertyValue("WhiteBalance","White Balance Red",Red)
+        # self.Camera.GetPropertyValue("WhiteBalance","White Balance Green",Green)
+        # self.Camera.GetPropertyValue("WhiteBalance","White Balance Blue",Blue)
+        # print("Exposure time abs: ", ExposureTime)
+        # print("Gain abs: ", Gain)
+        # print("Red abs: ", Red)
+        # print("Green abs: ", Green)
+        # print("Blue abs: ", Blue)
+
+
+        if self.export_video:###############################################################################################
+            self.video_writer.write(self.frame)
+
+        t1 = time.time()
+        t2 = 0
+        t3 = 0
+        t4 = 0
 
         gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
 
         _, thresholded = cv2.threshold(gray, self.THRESH, 255, cv2.THRESH_TOZERO)
 
         # _, contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        _, contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         cv2.drawContours(self.frame, contours, -1, (0,255,0), 2)
 
-        # if len(contours) >= 2:
-        #     moments_star_1 = cv2.moments(contours[0])
-        #     moments_star_2 = cv2.moments(contours[1])
+        try:
+            moments_star_1 = cv2.moments(contours[0])
+            moments_star_2 = cv2.moments(contours[1])
 
-        #     cX_star1 = int(moments_star_1["m10"] / moments_star_1["m00"])
-        #     cY_star1 = int(moments_star_1["m01"] / moments_star_1["m00"])
+        except IndexError:
+            print("Only {} were found ! (Must be at least 2)".format(len(contours)))
 
-        #     cX_star2 = int(moments_star_2["m10"] / moments_star_2["m00"])
-        #     cY_star2 = int(moments_star_2["m01"] / moments_star_2["m00"])
+        else:
+            try:
+                cX_star1 = int(moments_star_1["m10"] / moments_star_1["m00"])
+                cY_star1 = int(moments_star_1["m01"] / moments_star_1["m00"])
 
-        #     if self.enable_seeing.isChecked():
-        #         # Calcul Seeing ######################################################################
-        #         delta_x = abs(cX_star2 - cX_star1)
-        #         delta_y = abs(cY_star2 - cY_star1)
+                cX_star2 = int(moments_star_2["m10"] / moments_star_2["m00"])
+                cY_star2 = int(moments_star_2["m01"] / moments_star_2["m00"])
 
-        #         self.arr_delta_x.append(delta_x)
-        #         self.arr_delta_y.append(delta_y)
+            except ZeroDivisionError:
+                return
 
-        #         sigma_x = np.std(self.arr_delta_x)
-        #         sigma_y = np.std(self.arr_delta_y)
+            if self.enable_seeing.isChecked():
+                # Calcul Seeing ######################################################################
+                delta_x = abs(cX_star2 - cX_star1)
+                delta_y = abs(cY_star2 - cY_star1)
 
+                self.arr_delta_x.append(delta_x)
+                self.arr_delta_y.append(delta_y)
 
-        #         # Seeing
-        #         epsilon_x = self.A * np.power(self.B * sigma_x, 0.2)
-        #         epsilon_y = self.A * np.power(self.C * sigma_y, 0.2)
+                sigma_x = np.std(self.arr_delta_x)
+                sigma_y = np.std(self.arr_delta_y)
 
-        #         # print("Time elapsed: {} sec | Maximum FPS: {}".format(elapsed, round(1.0 / elapsed)))
+                # Seeing
+                epsilon_x = self.A * np.power(self.B * sigma_x, 0.2)
+                epsilon_y = self.A * np.power(self.C * sigma_y, 0.2)
 
-        #         self.arr_epsilon_x.append(epsilon_x)
-        #         self.arr_epsilon_y.append(epsilon_y)
+                t2 = time.time()
+                elapsed = t2 - t1
+                print("Seeing: {} sec | Maximum FPS: {}".format(elapsed, round(1.0 / elapsed)))
 
-        #         self.matplotlib_widget.plot(self.arr_epsilon_x, 0)
-        #         self.matplotlib_widget.plot(self.arr_epsilon_y, 1)
+                self.arr_epsilon_x.append(epsilon_x)
+                self.arr_epsilon_y.append(epsilon_y)
 
+                self.matplotlib_widget.plot(self.arr_epsilon_x, 0)
+                self.matplotlib_widget.plot(self.arr_epsilon_y, 1)
 
-        #         # plt.subplot(211)
-        #         # plt.ylim(-5, 10)
-        #         # plt.title("Seeing on X axis")
-        #         # plt.plot(self.arr_epsilon_x, c='blue')
-
-        #         # plt.subplot(212)
-        #         # plt.ylim(-5, 10)
-        #         # plt.title("Seeing on Y axis")
-        #         # plt.plot(self.arr_epsilon_y, c='cyan')
-
-        #         # plt.tight_layout()
-        #         # plt.pause(1e-3)
+                t3 = time.time()
+                elapsed = t3 - t1
+                print("Plotting: {} sec | Maximum FPS: {}".format(elapsed, round(1.0 / elapsed)))
 
 
-        #     # Displaying #########################################################################
-        #     cv2.drawMarker(self.frame, (cX_star1, cY_star1), color=(255, 0, 0), markerSize=30, thickness=1)
-        #     cv2.drawMarker(self.frame, (cX_star2, cY_star2), color=(0, 0, 255), markerSize=30, thickness=1)
+                # plt.subplot(211)
+                # plt.ylim(-5, 10)
+                # plt.title("Seeing on X axis")
+                # plt.plot(self.arr_epsilon_x, c='blue')
 
-        qImage = array2qimage(self.frame)
-        self.stars_capture.setPixmap(QPixmap(qImage))
+                # plt.subplot(212)
+                # plt.ylim(-5, 10)
+                # plt.title("Seeing on Y axis")
+                # plt.plot(self.arr_epsilon_y, c='cyan')
+
+                # plt.tight_layout()
+                # plt.pause(1e-3)
+
+        finally:
+            qImage = array2qimage(self.frame)
+            self.stars_capture.setPixmap(QPixmap(qImage))
+
+            t4 = time.time()
+            elapsed = t4 - t1
+            print("Displaying: {} sec | Maximum FPS: {}".format(elapsed, round(1.0 / elapsed)))
+            print("=" * 50)
+
+            # if self.export_video:
+            #     self.video_writer.write(self.frame)
 
 
     def importVideo(self):
 
         self.video_source = VideoSource.VIDEO
+        self.button_export.setEnabled(True)
         self._setPauseButton()
 
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
         filename, _ = QFileDialog.getOpenFileName(self,
-            "Select Video File",
+            "Import from Video File",
             QDir.currentPath(),
-            "Video Files (*.avi *.mp4 *.mpeg *.flv *.3gp *.mov);;All Files (*)")
+            "Video Files (*.avi *.mp4 *.mpeg *.flv *.3gp *.mov);;All Files (*)",
+            options=options)
 
         if filename:
+            if self.Camera != None and self.Camera.IsDevValid() == 1:
+                self.Camera.StopLive()
+
             self.cap = cv2.VideoCapture(filename)
 
-            print("CAP_PROP_POS_MSEC :", self.cap.get(cv2.CAP_PROP_POS_MSEC))
-            print("CAP_PROP_POS_FRAMES :", self.cap.get(cv2.CAP_PROP_POS_FRAMES))
-            print("CAP_PROP_POS_AVI_RATIO :", self.cap.get(cv2.CAP_PROP_POS_AVI_RATIO))
-            print("CAP_PROP_FRAME_WIDTH :", self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            print("CAP_PROP_FRAME_HEIGHT :", self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            print("CAP_PROP_FPS :", self.cap.get(cv2.CAP_PROP_FPS))
-            print("CAP_PROP_FOURCC :", self.cap.get(cv2.CAP_PROP_FOURCC))
-            print("CAP_PROP_FRAME_COUNT :", self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            print("CAP_PROP_FORMAT :", self.cap.get(cv2.CAP_PROP_FORMAT))
-            print("CAP_PROP_MODE :", self.cap.get(cv2.CAP_PROP_MODE))
-            print("CAP_PROP_BRIGHTNESS :", self.cap.get(cv2.CAP_PROP_BRIGHTNESS))
-            print("CAP_PROP_CONTRAST :", self.cap.get(cv2.CAP_PROP_CONTRAST))
-            print("CAP_PROP_SATURATION :", self.cap.get(cv2.CAP_PROP_SATURATION))
-            print("CAP_PROP_HUE :", self.cap.get(cv2.CAP_PROP_HUE))
-            print("CAP_PROP_GAIN :", self.cap.get(cv2.CAP_PROP_GAIN))
-            print("CAP_PROP_EXPOSURE :", self.cap.get(cv2.CAP_PROP_EXPOSURE))
-            print("CAP_PROP_CONVERT_RGB :", self.cap.get(cv2.CAP_PROP_CONVERT_RGB))
-            print("CAP_PROP_WHITE_APERTURE :", self.cap.get(cv2.CAP_PROP_APERTURE))
-            print("CAP_PROP_RECTIFICATION :", self.cap.get(cv2.CAP_PROP_RECTIFICATION))
-            print("CAP_PROP_ISO_SPEED :", self.cap.get(cv2.CAP_PROP_ISO_SPEED))
-            print("CAP_PROP_BUFFERSIZE :", self.cap.get(cv2.CAP_PROP_BUFFERSIZE))
+            # print("CAP_PROP_POS_MSEC :", self.cap.get(cv2.CAP_PROP_POS_MSEC))
+            # print("CAP_PROP_POS_FRAMES :", self.cap.get(cv2.CAP_PROP_POS_FRAMES))
+            # print("CAP_PROP_POS_AVI_RATIO :", self.cap.get(cv2.CAP_PROP_POS_AVI_RATIO))
+            # print("CAP_PROP_FRAME_WIDTH :", self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            # print("CAP_PROP_FRAME_HEIGHT :", self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            # print("CAP_PROP_FPS :", self.cap.get(cv2.CAP_PROP_FPS))
+            # print("CAP_PROP_FOURCC :", self.cap.get(cv2.CAP_PROP_FOURCC))
+            # print("CAP_PROP_FRAME_COUNT :", self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            # print("CAP_PROP_FORMAT :", self.cap.get(cv2.CAP_PROP_FORMAT))
+            # print("CAP_PROP_MODE :", self.cap.get(cv2.CAP_PROP_MODE))
+            # print("CAP_PROP_BRIGHTNESS :", self.cap.get(cv2.CAP_PROP_BRIGHTNESS))
+            # print("CAP_PROP_CONTRAST :", self.cap.get(cv2.CAP_PROP_CONTRAST))
+            # print("CAP_PROP_SATURATION :", self.cap.get(cv2.CAP_PROP_SATURATION))
+            # print("CAP_PROP_HUE :", self.cap.get(cv2.CAP_PROP_HUE))
+            # print("CAP_PROP_GAIN :", self.cap.get(cv2.CAP_PROP_GAIN))
+            # print("CAP_PROP_EXPOSURE :", self.cap.get(cv2.CAP_PROP_EXPOSURE))
+            # print("CAP_PROP_CONVERT_RGB :", self.cap.get(cv2.CAP_PROP_CONVERT_RGB))
+            # print("CAP_PROP_WHITE_APERTURE :", self.cap.get(cv2.CAP_PROP_APERTURE))
+            # print("CAP_PROP_RECTIFICATION :", self.cap.get(cv2.CAP_PROP_RECTIFICATION))
+            # print("CAP_PROP_ISO_SPEED :", self.cap.get(cv2.CAP_PROP_ISO_SPEED))
+            # print("CAP_PROP_BUFFERSIZE :", self.cap.get(cv2.CAP_PROP_BUFFERSIZE))
 
 
             if self.cap.isOpened() == False:
@@ -301,6 +445,10 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
                 return
 
             self.timer_interval = round(1000.0 / self.cap.get(cv2.CAP_PROP_FPS))
+            try:
+                self.acquisition_timer.disconnect()
+            except TypeError:
+                pass
             self.acquisition_timer.timeout.connect(self._grabVideoFrame)
             self.acquisition_timer.start(self.timer_interval)
 
@@ -317,7 +465,40 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
 
     def exportVideo(self):
-        pass
+        # if not self.enable_seeing.isChecked():
+        #     answer = QMessageBox.question(self,
+        #         "Export to Video File",
+        #         "Seeing Monitoring is not activated. Continue ?",
+        #         QMessageBox.Yes|QMessageBox.No,
+        #         QMessageBox.No)
+
+        #     if answer == QMessageBox.No:
+        #         return
+
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        filename, _ = QFileDialog.getSaveFileName(self,
+            "Export to Video File",
+            QDir.currentPath(),
+            "All Files (*);;Video Files (*.avi *.mp4 *.mpeg *.flv *.3gp *.mov)",
+            options=options)
+
+        if filename:
+            if splitext(filename)[1] != ".avi":
+                filename = splitext(filename)[0] + ".avi"
+                QMessageBox.information(self, "Export to Video File", "Only '.avi' extension is supported. Video will be saved as '{}'".format(filename))
+
+            print(self.timer_interval)
+            print(round(1000.0 / float(self.timer_interval)))
+
+            self.video_writer = cv2.VideoWriter(
+                filename,
+                cv2.VideoWriter_fourcc(*'MJPG'),
+                round(1000.0 / float(self.timer_interval)),
+                (640, 480)  #################################################################################
+            )
+            self.export_video = True
+
 
 
     def _setPauseButton(self):
@@ -327,21 +508,35 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
 
     def _pause(self):
-        self.acquisition_timer.stop()
+        # IC_SuspendLive IC_StopLive ##################################################################################
         self.button_pause.setText("▶ Resume")
         self.button_pause.clicked.connect(self._resume)
 
+        if self.video_source == VideoSource.CAMERA:
+            self.Camera.StopLive()
+        else:
+            self.acquisition_timer.stop()
+
 
     def _resume(self):
-        self.acquisition_timer.start(self.timer_interval)
         self._setPauseButton()
 
         if self.video_source == VideoSource.CAMERA:
-            self.acquisition_timer.timeout.connect(self._updateLiveCamera)
-        elif self.video_source == VideoSource.SIMULATION:
-            self.acquisition_timer.timeout.connect(self._updateSimulation)
-        elif self.video_source == VideoSource.CAMERA:
-            self.acquisition_timer.timeout.connect(self._grabVideoFrame)
+            self.Camera.StartLive(0)
+        else:
+            try:
+                self.acquisition_timer.disconnect()
+            except TypeError:
+                pass
+
+            self.acquisition_timer.start(self.timer_interval)
+
+            if self.video_source == VideoSource.CAMERA:
+                self.acquisition_timer.timeout.connect(self._updateLiveCamera)
+            elif self.video_source == VideoSource.SIMULATION:
+                self.acquisition_timer.timeout.connect(self._updateSimulation)
+            elif self.video_source == VideoSource.CAMERA:
+                self.acquisition_timer.timeout.connect(self._grabVideoFrame)
 
 
 

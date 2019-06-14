@@ -200,6 +200,9 @@
           </item>
           <item>
            <widget class="QPushButton" name="button_export">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
             <property name="text">
              <string>Export</string>
             </property>
@@ -433,7 +436,7 @@
     <string>E&amp;xport to Video</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+S</string>
+    <string>Ctrl+E</string>
    </property>
   </action>
   <action name="actionEnable_Seeing_Monitoring">
@@ -442,9 +445,6 @@
    </property>
    <property name="text">
     <string>&amp;Enable Seeing Monitoring</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+E</string>
    </property>
   </action>
  </widget>
