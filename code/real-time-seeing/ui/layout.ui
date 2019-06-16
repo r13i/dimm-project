@@ -9,7 +9,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>959</width>
+    <width>1032</width>
     <height>1046</height>
    </rect>
   </property>
@@ -63,20 +63,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QWidget" name="seeing_graph" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>640</width>
-           <height>0</height>
-          </size>
-         </property>
-        </widget>
+        <widget class="QGraphicsView" name="graphicsView"/>
        </item>
       </layout>
      </widget>
@@ -141,6 +128,30 @@
         </widget>
        </item>
        <item>
+        <widget class="QPushButton" name="button_import">
+         <property name="text">
+          <string>Import</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="button_export">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string>Export</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="Line" name="line_4">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPushButton" name="button_pause">
          <property name="enabled">
           <bool>false</bool>
@@ -164,54 +175,6 @@
         </widget>
        </item>
        <item>
-        <widget class="Line" name="line_4">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QWidget" name="widget_3" native="true">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <layout class="QHBoxLayout" name="horizontalLayout_3">
-          <property name="leftMargin">
-           <number>0</number>
-          </property>
-          <property name="topMargin">
-           <number>0</number>
-          </property>
-          <property name="rightMargin">
-           <number>0</number>
-          </property>
-          <property name="bottomMargin">
-           <number>0</number>
-          </property>
-          <item>
-           <widget class="QPushButton" name="button_import">
-            <property name="text">
-             <string>Import</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="button_export">
-            <property name="enabled">
-             <bool>false</bool>
-            </property>
-            <property name="text">
-             <string>Export</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </widget>
-       </item>
-       <item>
         <widget class="Line" name="line">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
@@ -220,125 +183,194 @@
        </item>
        <item>
         <layout class="QFormLayout" name="formLayout">
-         <item row="0" column="0">
-          <widget class="QCheckBox" name="exposure_checkbox">
-           <property name="enabled">
-            <bool>true</bool>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Wavelength in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
-           <property name="layoutDirection">
-            <enum>Qt::RightToLeft</enum>
+           <property name="whatsThis">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Wavelength in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
            <property name="text">
-            <string>Exposure (auto)</string>
-           </property>
-           <property name="checked">
-            <bool>true</bool>
+            <string>Wavelength (µm)</string>
            </property>
           </widget>
          </item>
-         <item row="0" column="1">
-          <widget class="QDoubleSpinBox" name="exposure_spinbox">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QCheckBox" name="gain_checkbox">
+         <item row="1" column="1">
+          <widget class="QDoubleSpinBox" name="spinbox_lambda">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
              <horstretch>0</horstretch>
              <verstretch>0</verstretch>
             </sizepolicy>
            </property>
-           <property name="layoutDirection">
-            <enum>Qt::RightToLeft</enum>
+           <property name="decimals">
+            <number>9</number>
            </property>
-           <property name="text">
-            <string>Gain (auto)</string>
+           <property name="maximum">
+            <double>999999999.999999046325684</double>
            </property>
-           <property name="checked">
-            <bool>true</bool>
+           <property name="singleStep">
+            <double>1.000000000000000</double>
            </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="QSpinBox" name="gain_spinbox">
-           <property name="enabled">
-            <bool>false</bool>
+           <property name="value">
+            <double>0.500000000000000</double>
            </property>
           </widget>
          </item>
          <item row="2" column="0">
-          <widget class="QCheckBox" name="whitebalance_checkbox">
-           <property name="layoutDirection">
-            <enum>Qt::RightToLeft</enum>
+          <widget class="QLabel" name="label_2">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Apertures Separation in meters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="whatsThis">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Apertures Separation in meters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
            <property name="text">
-            <string>White Balance (auto)</string>
+            <string>B (Apert. Sep.)(mm)</string>
            </property>
-           <property name="checked">
-            <bool>true</bool>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QDoubleSpinBox" name="spinbox_b">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="decimals">
+            <number>3</number>
+           </property>
+           <property name="value">
+            <double>50.000000000000000</double>
            </property>
           </widget>
          </item>
          <item row="3" column="0">
-          <widget class="QLabel" name="label_2">
+          <widget class="QLabel" name="label_3">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Apertures Diameter in meters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="whatsThis">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Apertures Diameter in meters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
            <property name="text">
-            <string>Red</string>
+            <string>D (Apert. Diam.)(mm)</string>
            </property>
           </widget>
          </item>
          <item row="3" column="1">
-          <widget class="QSlider" name="red_slider">
-           <property name="enabled">
-            <bool>false</bool>
+          <widget class="QDoubleSpinBox" name="spinbox_d">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="decimals">
+            <number>3</number>
            </property>
            <property name="value">
-            <number>50</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
+            <double>50.000000000000000</double>
            </property>
           </widget>
          </item>
          <item row="4" column="0">
-          <widget class="QLabel" name="label_3">
+          <widget class="QLabel" name="label_4">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focal Length in millimeters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="whatsThis">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focal Length in millimeters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
            <property name="text">
-            <string>Green</string>
+            <string>Focal Length (mm)</string>
            </property>
           </widget>
          </item>
          <item row="4" column="1">
-          <widget class="QSlider" name="green_slider">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="value">
-            <number>50</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
+          <widget class="QDoubleSpinBox" name="spinbox_focal">
+           <property name="decimals">
+            <number>9</number>
            </property>
           </widget>
          </item>
          <item row="5" column="0">
-          <widget class="QLabel" name="label_4">
+          <widget class="QLabel" name="label_5">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Pixel Width in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="whatsThis">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Pixel Width in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
            <property name="text">
-            <string>Blue</string>
+            <string>Pixel Width (µm)</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="label_6">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Pixel Height in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="whatsThis">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Pixel Height in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="text">
+            <string>Pixel Height (µm)</string>
            </property>
           </widget>
          </item>
          <item row="5" column="1">
-          <widget class="QSlider" name="blue_slider">
-           <property name="enabled">
-            <bool>false</bool>
+          <widget class="QDoubleSpinBox" name="spinbox_pwidth">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="decimals">
+            <number>9</number>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="1">
+          <widget class="QDoubleSpinBox" name="spinbox_pheight">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="decimals">
+            <number>9</number>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QSlider" name="slider_threshold">
+           <property name="maximum">
+            <number>255</number>
            </property>
            <property name="value">
-            <number>50</number>
+            <number>127</number>
            </property>
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="tickPosition">
+            <enum>QSlider::TicksBelow</enum>
+           </property>
+           <property name="tickInterval">
+            <number>16</number>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_threshold">
+           <property name="text">
+            <string>Pixel Threshold</string>
            </property>
           </widget>
          </item>
@@ -361,7 +393,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>959</width>
+     <width>1032</width>
      <height>22</height>
     </rect>
    </property>
@@ -451,86 +483,6 @@
  <resources/>
  <connections>
   <connection>
-   <sender>exposure_checkbox</sender>
-   <signal>clicked(bool)</signal>
-   <receiver>exposure_spinbox</receiver>
-   <slot>setEnabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>756</x>
-     <y>208</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>874</x>
-     <y>201</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>gain_checkbox</sender>
-   <signal>clicked(bool)</signal>
-   <receiver>gain_spinbox</receiver>
-   <slot>setEnabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>775</x>
-     <y>240</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>876</x>
-     <y>240</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>whitebalance_checkbox</sender>
-   <signal>clicked(bool)</signal>
-   <receiver>red_slider</receiver>
-   <slot>setEnabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>815</x>
-     <y>268</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>864</x>
-     <y>295</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>whitebalance_checkbox</sender>
-   <signal>clicked(bool)</signal>
-   <receiver>green_slider</receiver>
-   <slot>setEnabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>788</x>
-     <y>268</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>866</x>
-     <y>313</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>whitebalance_checkbox</sender>
-   <signal>clicked(bool)</signal>
-   <receiver>blue_slider</receiver>
-   <slot>setEnabled(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>770</x>
-     <y>270</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>878</x>
-     <y>337</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>actionSelect_camera</sender>
    <signal>triggered()</signal>
    <receiver>button_start</receiver>
@@ -589,8 +541,8 @@
      <y>-1</y>
     </hint>
     <hint type="destinationlabel">
-     <x>811</x>
-     <y>164</y>
+     <x>1000</x>
+     <y>287</y>
     </hint>
    </hints>
   </connection>
@@ -605,8 +557,8 @@
      <y>-1</y>
     </hint>
     <hint type="destinationlabel">
-     <x>745</x>
-     <y>52</y>
+     <x>1000</x>
+     <y>177</y>
     </hint>
    </hints>
   </connection>
@@ -621,8 +573,8 @@
      <y>-1</y>
     </hint>
     <hint type="destinationlabel">
-     <x>877</x>
-     <y>52</y>
+     <x>1000</x>
+     <y>208</y>
     </hint>
    </hints>
   </connection>

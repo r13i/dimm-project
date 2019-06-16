@@ -9,10 +9,11 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
-from PyQt5.QtCore import QTimer, QDir
-from PyQt5.QtGui import QImage, QPalette, QPixmap
+from PyQt5.QtCore import QTimer, QDir, Qt, QDateTime
+from PyQt5.QtGui import QImage, QPalette, QPixmap, QPainter
 from PyQt5.QtWidgets import (QWidget, QGridLayout, QAction, QApplication, QPushButton, QLabel,
     QMainWindow, QMenu, QMessageBox, QSizePolicy, QFileDialog)
+from PyQt5.QtChart import QLineSeries, QDateTimeAxis, QValueAxis, QChart, QChartView
 from qimage2ndarray import array2qimage, gray2qimage
 
 from utils.state_enum import VideoSource
@@ -35,18 +36,21 @@ else:
     iBitsPerPixel   = C.c_int()
     COLORFORMAT     = C.c_int()
 
-
 from utils.fake_stars import FakeStars
 from utils.matplotlib_widget import MatplotlibWidget
 
 
-class CallbackUserData(C.Structure):
-    """ Example for user data passed to the callback function. """
-    def __init__(self):
-        self.width = 0
-        self.height = 0
-        self.iBitsPerPixel = 0
-        self.buffer_size = 0
+if platform.system() == 'Linux':
+    class CallbackUserData(object):
+        pass
+else:
+    class CallbackUserData(C.Structure):
+        """ Example for user data passed to the callback function. """
+        def __init__(self):
+            self.width = 0
+            self.height = 0
+            self.iBitsPerPixel = 0
+            self.buffer_size = 0
 
 
 class SeeingMonitor(QMainWindow, Ui_MainWindow):
@@ -59,51 +63,60 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.video_source = VideoSource.NONE
         self.export_video = False
 
-        self.matplotlib_widget = MatplotlibWidget(parent=self.seeing_graph, width=6.4, height=1.8, dpi=100)
-
         if platform.system() == 'Linux':
             self.button_start.setEnabled(False)
 
         self.button_start.clicked.connect(self.startLiveCamera)
         self.button_settings.clicked.connect(self.showSettings)
         self.button_simulation.clicked.connect(self.startSimulation)
-
         self.button_import.clicked.connect(self.importVideo)
         self.button_export.clicked.connect(self.exportVideo)
+
+        # Update the threshold value
+        self.slider_threshold.valueChanged.connect(self._updateThreshold)
+
+        # Update the Tilt value
+        self.spinbox_b.valueChanged.connect(self._updateFormulaZTilt)
+        self.spinbox_d.valueChanged.connect(self._updateFormulaZTilt)
+        # Update the constants in the FWHM seeing formula
+        self.spinbox_d.valueChanged.connect(self._updateFormulaConstants)
+        self.spinbox_lambda.valueChanged.connect(self._updateFormulaConstants)
+
 
         # Timer for acquiring images at regular intervals
         self.acquisition_timer = QTimer(parent=self.centralwidget)
         self.timer_interval = None
 
 
-        # Define constants for the simulation
-        self.THRESH         = 127       # Pixels below this value will be set to 0
+        self._updateThreshold()
+        self._updateFormulaZTilt()
+        self._updateFormulaConstants()
 
-        DIAMETER_GDIMM      = 0.06      # 6 cm
-        L                   = 0.03      # 30 cm : The distance between two DIMM apertures
-        b                   = L / DIAMETER_GDIMM
-        K_L = 0.364 * (1 - 0.532 * np.power(b, -1 / 3) - 0.024 * np.power(b, -7 / 3))
-        K_T = 0.364 * (1 - 0.798 * np.power(b, -1 / 3) - 0.018 * np.power(b, -7 / 3))
-
-        LAMBDA              = 0.0005    # 500 micro-meters
-        Z                   = 45        # Zenithal angle (in degrees)
-
-        # Calculate values to make process faster
-        self.A = 0.98 * np.power(np.cos(Z), 0.6)
-        self.B = DIAMETER_GDIMM / (LAMBDA * K_L)
-        # self.C = DIAMETER_GDIMM / (LAMBDA * K_T)
-        self.C = abs(DIAMETER_GDIMM / (LAMBDA * K_T))
 
         # Storing the Delta X and Y in an array to calculate the Standard Deviation
         self.arr_delta_x = deque(maxlen=100)
         self.arr_delta_y = deque(maxlen=100)
 
-        self.arr_epsilon_x = deque(maxlen=10)
-        self.arr_epsilon_y = deque(maxlen=10)
+        self.plot_length   = 100
+        self.arr_epsilon_x = deque(maxlen=self.plot_length)
+        self.arr_epsilon_y = deque(maxlen=self.plot_length)
 
-
-        #################################################################################################################
-        self.startLiveCamera()
+        # self.matplotlib_widget = MatplotlibWidget(parent=self.seeing_graph, width=6.4, height=1.8, dpi=100)
+        self.series = QLineSeries()
+        for i in range(self.plot_length):
+            self.series.append(i, 0)
+        
+        self.chart = QChart()
+        self.chart.addSeries(self.series)
+        self.chart.createDefaultAxes()
+        self.chart.setTitle("Full Width at Half Maximum")
+        self.chart.setAnimationOptions(QChart.SeriesAnimations)
+        self.chart.legend().setVisible(True)
+        self.chart.legend().setAlignment(Qt.AlignBottom)
+        self.chartView = QChartView(self.chart, parent=self.graphicsView)
+        self.chartView.resize(640, 240)
+        self.chartView.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
+        self.chartView.setRenderHint(QPainter.Antialiasing)
 
 
     def closeEvent(self, event):
@@ -156,7 +169,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         Callbackfunc = IC.TIS_GrabberDLL.FRAMEREADYCALLBACK(self._callbackFunction)
         ImageDescription = CallbackUserData()    
 
-        # Create the camera object.
+        # Create the camera object
         self.Camera = IC.TIS_CAM()
 
         self.Camera.ShowDeviceSelectionDialog()
@@ -209,7 +222,6 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
         t = threading.Thread(target=self._startLiveCamera, args=(), daemon=True)
         t.start()
-
 
 
     def showSettings(self):
@@ -266,11 +278,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
         # Generating fake images of DIMM star (One single star that is split by the DIMM)
         self.starsGenerator = FakeStars()
-
-        # WIDTH, HEIGHT = self.starsGenerator.width, self.starsGenerator.height
-        # self.resize(int(round(float(HEIGHT) * 10. / 3.)), int(round(float(WIDTH) * 10. / 3.)))
-
         self.timer_interval = 100
+
         try:
             self.acquisition_timer.disconnect()
         except TypeError:
@@ -279,49 +288,49 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.acquisition_timer.start(self.timer_interval)
 
 
-
     def _updateSimulation(self):
         frame = self.starsGenerator.generate()
         self.frame = cv2.resize(frame, (640, 480))
         self._monitor()
 
+################################################################################################################################################################
+    def _updateThreshold(self):
+        self.THRESH = self.slider_threshold.value()
+        self.label_threshold.setText("Pixel Threshold ({})".format(self.THRESH))
+
+
+    def _updateFormulaZTilt(self):
+        b = float(self.spinbox_b.value()) / float(self.spinbox_d.value())
+        self.K_l = 0.364 * (1 - 0.532 * np.power(b, -1 / 3) - 0.024 * np.power(b, -7 / 3))
+        self.K_t = 0.364 * (1 - 0.798 * np.power(b, -1 / 3) - 0.018 * np.power(b, -7 / 3))
+
+
+    def _updateFormulaConstants(self):
+        # Calculate value to make process faster
+        self.A = 0.98 * np.power(float(self.spinbox_d.value()) / float(self.spinbox_lambda.value()), 0.2)
+
+
+    def _calcSeeing(self):
+        std_x = np.std(self.arr_delta_x)
+        std_y = np.std(self.arr_delta_y)
+
+        # Seeing
+        epsilon_x = self.A * np.power(std_x / self.K_l, 0.6)
+        epsilon_y = self.A * np.power(std_y / self.K_t, 0.6)
+
+        self.arr_epsilon_x.append(epsilon_x)
+        self.arr_epsilon_y.append(epsilon_y)
 
     def _monitor(self):
 
-        # ExposureTime=[0]
-        # self.Camera.GetPropertyAbsoluteValue("Exposure","Value",ExposureTime)
-
-        # Gain=[0]
-        # self.Camera.GetPropertyValue("Gain","Value",Gain)
-
-        # Red=[0]
-        # Green=[0]
-        # Blue=[0]
-        # self.Camera.GetPropertyValue("WhiteBalance","White Balance Red",Red)
-        # self.Camera.GetPropertyValue("WhiteBalance","White Balance Green",Green)
-        # self.Camera.GetPropertyValue("WhiteBalance","White Balance Blue",Blue)
-        # print("Exposure time abs: ", ExposureTime)
-        # print("Gain abs: ", Gain)
-        # print("Red abs: ", Red)
-        # print("Green abs: ", Green)
-        # print("Blue abs: ", Blue)
-
-
-        if self.export_video:###############################################################################################
-            self.video_writer.write(self.frame)
-
-        t1 = time.time()
-        t2 = 0
-        t3 = 0
-        t4 = 0
+        tic = time.time()
 
         gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
-
         _, thresholded = cv2.threshold(gray, self.THRESH, 255, cv2.THRESH_TOZERO)
 
         # _, contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        cv2.drawContours(self.frame, contours, -1, (0,255,0), 2)
+        # cv2.drawContours(self.frame, contours, -1, (0,255,0), 2)
 
         try:
             moments_star_1 = cv2.moments(contours[0])
@@ -342,59 +351,45 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
                 return
 
             if self.enable_seeing.isChecked():
-                # Calcul Seeing ######################################################################
                 delta_x = abs(cX_star2 - cX_star1)
                 delta_y = abs(cY_star2 - cY_star1)
 
                 self.arr_delta_x.append(delta_x)
                 self.arr_delta_y.append(delta_y)
 
-                sigma_x = np.std(self.arr_delta_x)
-                sigma_y = np.std(self.arr_delta_y)
+                self._calcSeeing()
 
-                # Seeing
-                epsilon_x = self.A * np.power(self.B * sigma_x, 0.2)
-                epsilon_y = self.A * np.power(self.C * sigma_y, 0.2)
-
-                t2 = time.time()
-                elapsed = t2 - t1
-                print("Seeing: {} sec | Maximum FPS: {}".format(elapsed, round(1.0 / elapsed)))
-
-                self.arr_epsilon_x.append(epsilon_x)
-                self.arr_epsilon_y.append(epsilon_y)
-
-                self.matplotlib_widget.plot(self.arr_epsilon_x, 0)
-                self.matplotlib_widget.plot(self.arr_epsilon_y, 1)
-
-                t3 = time.time()
-                elapsed = t3 - t1
-                print("Plotting: {} sec | Maximum FPS: {}".format(elapsed, round(1.0 / elapsed)))
+                # self._plotSeeing()
+                t = threading.Thread(target=self._plotSeeing, args=(), daemon=True)
+                t.start()
+                # t.join()
 
 
-                # plt.subplot(211)
-                # plt.ylim(-5, 10)
-                # plt.title("Seeing on X axis")
-                # plt.plot(self.arr_epsilon_x, c='blue')
+            cv2.drawMarker(self.frame, (cX_star1, cY_star1), color=(0, 0, 255), markerSize=30, thickness=1)
+            cv2.drawMarker(self.frame, (cX_star2, cY_star2), color=(0, 0, 255), markerSize=30, thickness=1)
 
-                # plt.subplot(212)
-                # plt.ylim(-5, 10)
-                # plt.title("Seeing on Y axis")
-                # plt.plot(self.arr_epsilon_y, c='cyan')
-
-                # plt.tight_layout()
-                # plt.pause(1e-3)
 
         finally:
+
             qImage = array2qimage(self.frame)
             self.stars_capture.setPixmap(QPixmap(qImage))
 
-            t4 = time.time()
-            elapsed = t4 - t1
-            print("Displaying: {} sec | Maximum FPS: {}".format(elapsed, round(1.0 / elapsed)))
-            print("=" * 50)
+            if self.export_video:
+                self.video_writer.write(self.frame)
 
-            # if self.export_video:
-            #     self.video_writer.write(self.frame)
+        toc = time.time()
+        elapsed = toc - tic
+        print("FPS max = {}".format(int(1.0 / elapsed)))
+
+
+    def _plotSeeing(self):
+        # self.matplotlib_widget.plot(self.arr_epsilon_x, 0)
+        # self.matplotlib_widget.plot(self.arr_epsilon_y, 1)
+
+        current = QDateTime.currentDateTime()
+        for idx, elem in enumerate(self.arr_epsilon_x):
+            elem /= 100
+            self.series.replace(idx, idx, elem)
 
 
     def importVideo(self):
