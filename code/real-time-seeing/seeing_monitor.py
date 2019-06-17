@@ -98,40 +98,53 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.arr_delta_x = deque(maxlen=100)
         self.arr_delta_y = deque(maxlen=100)
 
-        self.plot_length   = 1000
-        # self.arr_epsilon_x = deque(maxlen=self.plot_length)
-        # self.arr_epsilon_y = deque(maxlen=self.plot_length)
-        self.fwhm_x = 0
-        self.fwhm_y = 0
+        self.plot_length = 1000
+        self.fwhm_lat = 0
+        self.fwhm_tra = 0
+        self.max_lat = 1
+        self.min_lat = 0
+        self.max_tra = 1
+        self.min_tra = 0
+
 
         # self.matplotlib_widget = MatplotlibWidget(parent=self.seeing_graph, width=6.4, height=1.8, dpi=100)
-        self.series = QLineSeries()
+        self.series_lat = QLineSeries()
+        self.series_lat.setName("Lateral")
+        self.series_tra = QLineSeries()
+        self.series_tra.setName("Transversal")
 
         self.chart = QChart()
-        self.chart.addSeries(self.series)
+        self.chart.addSeries(self.series_lat)
+        self.chart.addSeries(self.series_tra)
 
         # self.chart.createDefaultAxes()
         self.axis_horizontal = QDateTimeAxis()
         self.axis_horizontal.setMin(QDateTime.currentDateTime().addSecs(-60 * 1))
-        self.axis_horizontal.setMax(QDateTime.currentDateTime().addSecs(0))
-        # self.axis_horizontal.setTitleText("Time")
+        self.axis_horizontal.setMax(QDateTime.currentDateTime().addSecs(10))
         self.axis_horizontal.setFormat("HH:mm:ss.zzz")
         self.axis_horizontal.setLabelsFont(QFont(QFont.defaultFamily(self.font()), pointSize=6))
         self.axis_horizontal.setLabelsAngle(-20)
-        self.chart.setAxisX(self.axis_horizontal)
+        self.chart.addAxis(self.axis_horizontal, Qt.AlignBottom)
 
-        self.axis_vertical = QValueAxis()
-        self.axis_vertical.setRange(0, 1000)
-        self.chart.setAxisY(self.axis_vertical)
+        self.axis_vertical_lat = QValueAxis()
+        self.axis_vertical_lat.setRange(self.max_lat, self.min_lat)
+        self.chart.addAxis(self.axis_vertical_lat, Qt.AlignLeft)
 
-        self.series.attachAxis(self.axis_horizontal)
-        self.series.attachAxis(self.axis_vertical)
+        self.axis_vertical_tra = QValueAxis()
+        self.axis_vertical_tra.setRange(self.max_tra, self.min_tra)
+        self.chart.addAxis(self.axis_vertical_tra, Qt.AlignRight)
+
+        self.series_lat.attachAxis(self.axis_horizontal)
+        self.series_lat.attachAxis(self.axis_vertical_lat)
+
+        self.series_tra.attachAxis(self.axis_horizontal)
+        self.series_tra.attachAxis(self.axis_vertical_tra)
 
         self.chart.setTitle("Full Width at Half Maximum")
-        self.chart.legend().setVisible(True)
-        self.chart.legend().setAlignment(Qt.AlignBottom)
+        self.chart.legend().setVisible(False)
+        # self.chart.legend().setAlignment(Qt.AlignLeft)
         self.chartView = QChartView(self.chart, parent=self.graphicsView)
-        self.chartView.resize(640, 240)
+        self.chartView.resize(640, 200)
         self.chartView.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         self.chartView.setRenderHint(QPainter.Antialiasing)
 
@@ -317,9 +330,14 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
 
     def _updateFormulaZTilt(self):
-        b = float(self.spinbox_b.value()) / float(self.spinbox_d.value())
-        self.K_l = 0.364 * (1 - 0.532 * np.power(b, -1 / 3) - 0.024 * np.power(b, -7 / 3))
-        self.K_t = 0.364 * (1 - 0.798 * np.power(b, -1 / 3) - 0.018 * np.power(b, -7 / 3))
+        self.spinbox_d.setStyleSheet("QSpinBox { background-color: blue; }")
+        try:
+            b = float(self.spinbox_b.value()) / float(self.spinbox_d.value())
+        except ZeroDivisionError:
+            QMessageBox.warning(self, "Zero Division Error", "D (Apertures Diameter cannot be Zero")
+            return
+        self.K_lat = 0.364 * (1 - 0.532 * np.power(b, -1 / 3) - 0.024 * np.power(b, -7 / 3))
+        self.K_tra = 0.364 * (1 - 0.798 * np.power(b, -1 / 3) - 0.018 * np.power(b, -7 / 3))
 
 
     def _updateFormulaConstants(self):
@@ -332,11 +350,9 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         std_y = np.std(self.arr_delta_y)
 
         # Seeing
-        self.fwhm_x = self.A * np.power(std_x / self.K_l, 0.6)
-        self.fwhm_y = self.A * np.power(std_y / self.K_t, 0.6)
-
-        # self.arr_epsilon_x.append(self.fwhm_x)
-        # self.arr_epsilon_y.append(self.fwhm_y)
+        self.current = QDateTime.currentDateTime()
+        self.fwhm_lat = self.A * np.power(std_x / self.K_lat, 0.6)
+        self.fwhm_tra = self.A * np.power(std_y / self.K_tra, 0.6)
 
 
     def _monitor(self):
@@ -380,7 +396,6 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
                 # self._plotSeeing()
                 t = threading.Thread(target=self._plotSeeing, args=(), daemon=True)
                 t.start()
-                # t.join()
 
 
             cv2.drawMarker(self.frame, (cX_star1, cY_star1), color=(0, 0, 255), markerSize=30, thickness=1)
@@ -401,23 +416,36 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
 
     def _plotSeeing(self):
-        # self.matplotlib_widget.plot(self.arr_epsilon_x, 0)
-        # self.matplotlib_widget.plot(self.arr_epsilon_y, 1)
-
-        # for idx, elem in enumerate(self.arr_epsilon_x):
-        #     elem /= 100
-        #     self.series.replace(idx, idx, elem)
-
 
         self.axis_horizontal.setMin(QDateTime.currentDateTime().addSecs(-60 * 1))
-        self.axis_horizontal.setMax(QDateTime.currentDateTime().addSecs(0))
+        self.axis_horizontal.setMax(QDateTime.currentDateTime().addSecs(10))
 
-        if self.series.count() > self.plot_length - 1:
-            self.series.removePoints(0, self.series.count() - self.plot_length - 1)
+        if self.series_lat.count() > self.plot_length - 1:
+            self.series_lat.removePoints(0, self.series_lat.count() - self.plot_length - 1)
 
-        current = QDateTime.currentDateTime()
-        self.series.append(current.toMSecsSinceEpoch(), self.fwhm_x)
-        # self.series.append(current.toMSecsSinceEpoch(), random() * 1000)
+        if self.series_tra.count() > self.plot_length - 1:
+            self.series_tra.removePoints(0, self.series_tra.count() - self.plot_length - 1)
+
+        if self.fwhm_lat > self.max_lat:
+            self.max_lat = self.fwhm_lat
+            self.axis_vertical_lat.setMax(self.max_lat + 10)
+        if self.fwhm_lat < self.min_lat:
+            self.min_lat = self.fwhm_lat
+            self.axis_vertical_lat.setMax(self.min_lat - 10)
+        if self.fwhm_tra > self.max_tra:
+            self.max_tra = self.fwhm_tra
+            self.axis_vertical_tra.setMax(self.max_tra + 10)
+        if self.fwhm_tra < self.min_tra:
+            self.min_tra = self.fwhm_tra
+            self.axis_vertical_tra.setMax(self.min_tra - 10)
+
+
+        # self.axis_vertical_lat.setRange(0, self.fwhm_lat)
+        # self.axis_vertical_tra.setRange(0, self.fwhm_tra)
+        print(self.fwhm_lat, self.fwhm_tra)
+
+        self.series_lat.append(self.current.toMSecsSinceEpoch(), self.fwhm_lat)
+        self.series_tra.append(self.current.toMSecsSinceEpoch(), self.fwhm_tra)
 
 
     def importVideo(self):
@@ -483,6 +511,11 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
             self._monitor()
 
         else:
+            try:
+                self.acquisition_timer.disconnect()
+            except TypeError:
+                pass
+
             QMessageBox.information(self, "Import from Video", "Video complete !")
             self.cap.release()
 

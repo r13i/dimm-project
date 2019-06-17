@@ -172,6 +172,9 @@
          <property name="text">
           <string>Enable seeing monitoring</string>
          </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
         </widget>
        </item>
        <item>
@@ -242,8 +245,11 @@
            <property name="decimals">
             <number>3</number>
            </property>
+           <property name="maximum">
+            <double>999999999.998999953269958</double>
+           </property>
            <property name="value">
-            <double>50.000000000000000</double>
+            <double>100.000000000000000</double>
            </property>
           </widget>
          </item>
@@ -271,8 +277,11 @@
            <property name="decimals">
             <number>3</number>
            </property>
+           <property name="maximum">
+            <double>999999999.998999953269958</double>
+           </property>
            <property name="value">
-            <double>50.000000000000000</double>
+            <double>100.000000000000000</double>
            </property>
           </widget>
          </item>
@@ -293,6 +302,9 @@
           <widget class="QDoubleSpinBox" name="spinbox_focal">
            <property name="decimals">
             <number>9</number>
+           </property>
+           <property name="maximum">
+            <double>999999999.999999046325684</double>
            </property>
           </widget>
          </item>
@@ -333,6 +345,9 @@
            <property name="decimals">
             <number>9</number>
            </property>
+           <property name="maximum">
+            <double>999999999.999999046325684</double>
+           </property>
           </widget>
          </item>
          <item row="6" column="1">
@@ -345,6 +360,9 @@
            </property>
            <property name="decimals">
             <number>9</number>
+           </property>
+           <property name="maximum">
+            <double>999999999.999999046325684</double>
            </property>
           </widget>
          </item>
