@@ -4,13 +4,14 @@ import traceback
 import time
 from os.path import splitext
 import threading
+from random import random
 
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
 from PyQt5.QtCore import QTimer, QDir, Qt, QDateTime
-from PyQt5.QtGui import QImage, QPalette, QPixmap, QPainter
+from PyQt5.QtGui import QImage, QPalette, QPixmap, QPainter, QFont
 from PyQt5.QtWidgets import (QWidget, QGridLayout, QAction, QApplication, QPushButton, QLabel,
     QMainWindow, QMenu, QMessageBox, QSizePolicy, QFileDialog)
 from PyQt5.QtChart import QLineSeries, QDateTimeAxis, QValueAxis, QChart, QChartView
@@ -97,20 +98,36 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.arr_delta_x = deque(maxlen=100)
         self.arr_delta_y = deque(maxlen=100)
 
-        self.plot_length   = 100
-        self.arr_epsilon_x = deque(maxlen=self.plot_length)
-        self.arr_epsilon_y = deque(maxlen=self.plot_length)
+        self.plot_length   = 1000
+        # self.arr_epsilon_x = deque(maxlen=self.plot_length)
+        # self.arr_epsilon_y = deque(maxlen=self.plot_length)
+        self.fwhm_x = 0
+        self.fwhm_y = 0
 
         # self.matplotlib_widget = MatplotlibWidget(parent=self.seeing_graph, width=6.4, height=1.8, dpi=100)
         self.series = QLineSeries()
-        for i in range(self.plot_length):
-            self.series.append(i, 0)
-        
+
         self.chart = QChart()
         self.chart.addSeries(self.series)
-        self.chart.createDefaultAxes()
+
+        # self.chart.createDefaultAxes()
+        self.axis_horizontal = QDateTimeAxis()
+        self.axis_horizontal.setMin(QDateTime.currentDateTime().addSecs(-60 * 1))
+        self.axis_horizontal.setMax(QDateTime.currentDateTime().addSecs(0))
+        # self.axis_horizontal.setTitleText("Time")
+        self.axis_horizontal.setFormat("HH:mm:ss.zzz")
+        self.axis_horizontal.setLabelsFont(QFont(QFont.defaultFamily(self.font()), pointSize=6))
+        self.axis_horizontal.setLabelsAngle(-20)
+        self.chart.setAxisX(self.axis_horizontal)
+
+        self.axis_vertical = QValueAxis()
+        self.axis_vertical.setRange(0, 1000)
+        self.chart.setAxisY(self.axis_vertical)
+
+        self.series.attachAxis(self.axis_horizontal)
+        self.series.attachAxis(self.axis_vertical)
+
         self.chart.setTitle("Full Width at Half Maximum")
-        self.chart.setAnimationOptions(QChart.SeriesAnimations)
         self.chart.legend().setVisible(True)
         self.chart.legend().setAlignment(Qt.AlignBottom)
         self.chartView = QChartView(self.chart, parent=self.graphicsView)
@@ -315,11 +332,12 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         std_y = np.std(self.arr_delta_y)
 
         # Seeing
-        epsilon_x = self.A * np.power(std_x / self.K_l, 0.6)
-        epsilon_y = self.A * np.power(std_y / self.K_t, 0.6)
+        self.fwhm_x = self.A * np.power(std_x / self.K_l, 0.6)
+        self.fwhm_y = self.A * np.power(std_y / self.K_t, 0.6)
 
-        self.arr_epsilon_x.append(epsilon_x)
-        self.arr_epsilon_y.append(epsilon_y)
+        # self.arr_epsilon_x.append(self.fwhm_x)
+        # self.arr_epsilon_y.append(self.fwhm_y)
+
 
     def _monitor(self):
 
@@ -386,10 +404,20 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         # self.matplotlib_widget.plot(self.arr_epsilon_x, 0)
         # self.matplotlib_widget.plot(self.arr_epsilon_y, 1)
 
+        # for idx, elem in enumerate(self.arr_epsilon_x):
+        #     elem /= 100
+        #     self.series.replace(idx, idx, elem)
+
+
+        self.axis_horizontal.setMin(QDateTime.currentDateTime().addSecs(-60 * 1))
+        self.axis_horizontal.setMax(QDateTime.currentDateTime().addSecs(0))
+
+        if self.series.count() > self.plot_length - 1:
+            self.series.removePoints(0, self.series.count() - self.plot_length - 1)
+
         current = QDateTime.currentDateTime()
-        for idx, elem in enumerate(self.arr_epsilon_x):
-            elem /= 100
-            self.series.replace(idx, idx, elem)
+        self.series.append(current.toMSecsSinceEpoch(), self.fwhm_x)
+        # self.series.append(current.toMSecsSinceEpoch(), random() * 1000)
 
 
     def importVideo(self):
@@ -493,7 +521,6 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
                 (640, 480)  #################################################################################
             )
             self.export_video = True
-
 
 
     def _setPauseButton(self):
