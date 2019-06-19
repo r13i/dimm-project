@@ -2,15 +2,16 @@ from collections import deque
 import logging
 import traceback
 import time
-from os.path import splitext
+from os.path import splitext, join
 import threading
 from random import random
+import csv
 
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
-from PyQt5.QtCore import QTimer, QDir, Qt, QDateTime
+from PyQt5.QtCore import QObject, QEvent, QTimer, QDir, Qt, QDateTime
 from PyQt5.QtGui import QImage, QPalette, QPixmap, QPainter, QFont
 from PyQt5.QtWidgets import (QWidget, QGridLayout, QAction, QApplication, QPushButton, QLabel,
     QMainWindow, QMenu, QMessageBox, QSizePolicy, QFileDialog)
@@ -54,27 +55,71 @@ else:
             self.buffer_size = 0
 
 
+
+class EventHandler(QObject):
+    def __init__(self, seeingMonitor):
+        super(QObject, self).__init__()
+        self.seeingMonitor = seeingMonitor
+
+        self.mouse_pressed = False
+        self.starting_point = []
+        self.region_idx = 0
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.MouseButtonPress:
+            if self.seeingMonitor.select_regionsOfInterest == True and self.mouse_pressed == False:
+                self.mouse_pressed = True
+                self.starting_point.append(event.x())
+                self.starting_point.append(event.y())
+            return True
+        elif event.type() == QEvent.MouseMove:
+            if self.seeingMonitor.select_regionsOfInterest == True and self.mouse_pressed == True:
+                self.seeingMonitor._set_regionsOfInterest(self.region_idx, self.starting_point[0], self.starting_point[1], event.x(), event.y())
+            return True
+        elif event.type() == QEvent.MouseButtonRelease:
+            self.mouse_pressed = False
+            self.starting_point = []
+            if self.region_idx == 1:
+                self.seeingMonitor.select_regionsOfInterest = False
+                self.seeingMonitor.label_info.setText("")
+
+            self.region_idx = 0 if self.region_idx == 1 else 1
+            return True
+        else:
+            return QObject.eventFilter(self, obj, event)
+
+
+
+
 class SeeingMonitor(QMainWindow, Ui_MainWindow):
+
     def __init__(self):
         super(SeeingMonitor, self).__init__()
         self.setupUi(self)
 
         self.Camera = None
-
         self.video_source = VideoSource.NONE
         self.export_video = False
+        self.select_regionsOfInterest = False
+        self.coordinates_regionsOfInterest = []
+        self.lineedit_path.setText(QDir.currentPath())
+        self.lineedit_filename.setText("seeing.csv")
+        self.save_filename = None
+        self._updateFileSave()
 
         if platform.system() == 'Linux':
             self.button_start.setEnabled(False)
+            self.button_settings.setEnabled(False)
 
         self.button_start.clicked.connect(self.startLiveCamera)
         self.button_settings.clicked.connect(self.showSettings)
         self.button_simulation.clicked.connect(self.startSimulation)
         self.button_import.clicked.connect(self.importVideo)
         self.button_export.clicked.connect(self.exportVideo)
-
-        # Update the threshold value
+        self.button_roi.clicked.connect(self.selectRegionsOfInterest)
         self.slider_threshold.valueChanged.connect(self._updateThreshold)
+        self.lineedit_path.editingFinished.connect(self._updateFileSave)
+        self.lineedit_filename.editingFinished.connect(self._updateFileSave)
 
         # Update the Tilt value
         self.spinbox_b.valueChanged.connect(self._updateFormulaZTilt)
@@ -107,7 +152,6 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.min_tra = 0
 
 
-        # self.matplotlib_widget = MatplotlibWidget(parent=self.seeing_graph, width=6.4, height=1.8, dpi=100)
         self.series_lat = QLineSeries()
         self.series_lat.setName("Lateral")
         self.series_tra = QLineSeries()
@@ -120,7 +164,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         # self.chart.createDefaultAxes()
         self.axis_horizontal = QDateTimeAxis()
         self.axis_horizontal.setMin(QDateTime.currentDateTime().addSecs(-60 * 1))
-        self.axis_horizontal.setMax(QDateTime.currentDateTime().addSecs(10))
+        self.axis_horizontal.setMax(QDateTime.currentDateTime().addSecs(0))
         self.axis_horizontal.setFormat("HH:mm:ss.zzz")
         self.axis_horizontal.setLabelsFont(QFont(QFont.defaultFamily(self.font()), pointSize=6))
         self.axis_horizontal.setLabelsAngle(-20)
@@ -141,8 +185,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.series_tra.attachAxis(self.axis_vertical_tra)
 
         self.chart.setTitle("Full Width at Half Maximum")
-        self.chart.legend().setVisible(False)
-        # self.chart.legend().setAlignment(Qt.AlignLeft)
+        self.chart.legend().setVisible(True)
+        self.chart.legend().setAlignment(Qt.AlignBottom)
         self.chartView = QChartView(self.chart, parent=self.graphicsView)
         self.chartView.resize(640, 200)
         self.chartView.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
@@ -323,7 +367,73 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.frame = cv2.resize(frame, (640, 480))
         self._monitor()
 
+
 ################################################################################################################################################################
+    def _writeCSV(self, headerOnly=False):
+        if headerOnly:
+            with open(self.save_filename, "w") as csvFile:
+                fieldnames = ["timestamp", "lateral", "transversal", "star"]
+                writer = csv.DictWriter(csvFile, fieldnames=fieldnames)
+                writer.writeheader()
+                csvFile.close()
+
+        else:
+            with open(self.save_filename, "a") as csvFile:
+                # writer = csv.writer(csvFile)
+                # writer.writerow([self.current , self.fwhm_lat, self.fwhm_tra, self.lineedit_star.text()])
+                csvFile.write(",".join([str(self.current) , str(self.fwhm_lat), str(self.fwhm_tra), self.lineedit_star.text()]))
+                csvFile.write("\n")
+                csvFile.close()
+
+
+    def selectRegionsOfInterest(self):
+        self.label_info.setText("Please select two areas on the screen with your mouse.")
+        self.coordinates_regionsOfInterest = []
+        self.select_regionsOfInterest = True
+
+
+    def _set_regionsOfInterest(self, region_idx, x1, y1, x2, y2):
+        if region_idx == 0:
+            if len(self.coordinates_regionsOfInterest) == 0:
+                self.coordinates_regionsOfInterest.append([x1, y1])
+                self.coordinates_regionsOfInterest.append([x2, y2])
+
+            elif len(self.coordinates_regionsOfInterest) == 2:
+                self.coordinates_regionsOfInterest[0] = [x1, y1]
+                self.coordinates_regionsOfInterest[1] = [x2, y2]
+        elif region_idx == 1:
+            if len(self.coordinates_regionsOfInterest) == 2:
+                self.coordinates_regionsOfInterest.append([x1, y1])
+                self.coordinates_regionsOfInterest.append([x2, y2])
+
+            elif len(self.coordinates_regionsOfInterest) == 4:
+                self.coordinates_regionsOfInterest[2] = [x1, y1]
+                self.coordinates_regionsOfInterest[3] = [x2, y2]
+
+
+    def _draw_regionsOfInterest(self):
+        if len(self.coordinates_regionsOfInterest) >= 2:
+            self.frame
+            cv2.rectangle(
+                self.frame,
+                (self.coordinates_regionsOfInterest[0][0], self.coordinates_regionsOfInterest[0][1]),
+                (self.coordinates_regionsOfInterest[1][0], self.coordinates_regionsOfInterest[1][1]),
+                (0, 255, 0), 1)
+
+        if len(self.coordinates_regionsOfInterest) >= 4:
+            self.frame
+            cv2.rectangle(
+                self.frame,
+                (self.coordinates_regionsOfInterest[2][0], self.coordinates_regionsOfInterest[2][1]),
+                (self.coordinates_regionsOfInterest[3][0], self.coordinates_regionsOfInterest[3][1]),
+                (0, 255, 0), 1)
+
+
+    def _updateFileSave(self):
+        self.save_filename = join(self.lineedit_path.text(), self.lineedit_filename.text())
+        self._writeCSV(headerOnly=True)
+
+
     def _updateThreshold(self):
         self.THRESH = self.slider_threshold.value()
         self.label_threshold.setText("Pixel Threshold ({})".format(self.THRESH))
@@ -359,21 +469,30 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
         tic = time.time()
 
-        gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
-        _, thresholded = cv2.threshold(gray, self.THRESH, 255, cv2.THRESH_TOZERO)
+        self._draw_regionsOfInterest()
 
-        # _, contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-        # cv2.drawContours(self.frame, contours, -1, (0,255,0), 2)
+        if self.select_regionsOfInterest == False and len(self.coordinates_regionsOfInterest) == 4:
+            star1 = self.frame[
+                self.coordinates_regionsOfInterest[0][1] + 1 : self.coordinates_regionsOfInterest[1][1],
+                self.coordinates_regionsOfInterest[0][0] + 1 : self.coordinates_regionsOfInterest[1][0]
+            ].copy()
+            star2 = self.frame[
+                self.coordinates_regionsOfInterest[2][1] + 1 : self.coordinates_regionsOfInterest[3][1],
+                self.coordinates_regionsOfInterest[2][0] + 1 : self.coordinates_regionsOfInterest[3][0]
+            ].copy()
 
-        try:
-            moments_star_1 = cv2.moments(contours[0])
-            moments_star_2 = cv2.moments(contours[1])
+            gray1 = cv2.cvtColor(star1, cv2.COLOR_BGR2GRAY)
+            gray2 = cv2.cvtColor(star2, cv2.COLOR_BGR2GRAY)
+            _, thresholded1 = cv2.threshold(gray1, self.THRESH, 255, cv2.THRESH_TOZERO)
+            _, thresholded2 = cv2.threshold(gray2, self.THRESH, 255, cv2.THRESH_TOZERO)
 
-        except IndexError:
-            print("Only {} were found ! (Must be at least 2)".format(len(contours)))
+            # # _, contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+            # # cv2.drawContours(self.frame, contours, -1, (0,255,0), 2)
 
-        else:
+            moments_star_1 = cv2.moments(thresholded1)
+            moments_star_2 = cv2.moments(thresholded2)
+
             try:
                 cX_star1 = int(moments_star_1["m10"] / moments_star_1["m00"])
                 cY_star1 = int(moments_star_1["m01"] / moments_star_1["m00"])
@@ -393,32 +512,37 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
                 self._calcSeeing()
 
-                # self._plotSeeing()
-                t = threading.Thread(target=self._plotSeeing, args=(), daemon=True)
-                t.start()
+                threading.Thread(target=self._plotSeeing, args=(), daemon=True).start()
+                threading.Thread(target=self._writeCSV, args=(), daemon=True).start()
 
 
-            cv2.drawMarker(self.frame, (cX_star1, cY_star1), color=(0, 0, 255), markerSize=30, thickness=1)
-            cv2.drawMarker(self.frame, (cX_star2, cY_star2), color=(0, 0, 255), markerSize=30, thickness=1)
+            cv2.drawMarker(
+                self.frame,
+                (cX_star1 + self.coordinates_regionsOfInterest[0][0], cY_star1 + self.coordinates_regionsOfInterest[0][1]),
+                color=(0, 0, 255), markerSize=30, thickness=1)
+            cv2.drawMarker(
+                self.frame,
+                (cX_star2 + self.coordinates_regionsOfInterest[2][0], cY_star2 + self.coordinates_regionsOfInterest[2][1]),
+                color=(0, 0, 255), markerSize=30, thickness=1)
 
+        qImage = array2qimage(self.frame)
+        self.stars_capture.setPixmap(QPixmap(qImage))
 
-        finally:
-
-            qImage = array2qimage(self.frame)
-            self.stars_capture.setPixmap(QPixmap(qImage))
-
-            if self.export_video:
-                self.video_writer.write(self.frame)
+        if self.export_video:
+            self.video_writer.write(self.frame)
 
         toc = time.time()
         elapsed = toc - tic
-        print("FPS max = {}".format(int(1.0 / elapsed)))
+        try:
+            print("FPS max = {}".format(int(1.0 / elapsed)))
+        except ZeroDivisionError:
+            pass
 
 
     def _plotSeeing(self):
 
         self.axis_horizontal.setMin(QDateTime.currentDateTime().addSecs(-60 * 1))
-        self.axis_horizontal.setMax(QDateTime.currentDateTime().addSecs(10))
+        self.axis_horizontal.setMax(QDateTime.currentDateTime().addSecs(0))
 
         if self.series_lat.count() > self.plot_length - 1:
             self.series_lat.removePoints(0, self.series_lat.count() - self.plot_length - 1)
@@ -440,9 +564,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
             self.axis_vertical_tra.setMax(self.min_tra - 10)
 
 
-        # self.axis_vertical_lat.setRange(0, self.fwhm_lat)
-        # self.axis_vertical_tra.setRange(0, self.fwhm_tra)
-        print(self.fwhm_lat, self.fwhm_tra)
+        # print(self.fwhm_lat, self.fwhm_tra)
 
         self.series_lat.append(self.current.toMSecsSinceEpoch(), self.fwhm_lat)
         self.series_tra.append(self.current.toMSecsSinceEpoch(), self.fwhm_tra)
@@ -544,7 +666,6 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
                 filename = splitext(filename)[0] + ".avi"
                 QMessageBox.information(self, "Export to Video File", "Only '.avi' extension is supported. Video will be saved as '{}'".format(filename))
 
-            print(self.timer_interval)
             print(round(1000.0 / float(self.timer_interval)))
 
             self.video_writer = cv2.VideoWriter(
@@ -590,7 +711,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
                 self.acquisition_timer.timeout.connect(self._updateLiveCamera)
             elif self.video_source == VideoSource.SIMULATION:
                 self.acquisition_timer.timeout.connect(self._updateSimulation)
-            elif self.video_source == VideoSource.CAMERA:
+            elif self.video_source == VideoSource.VIDEO:
                 self.acquisition_timer.timeout.connect(self._grabVideoFrame)
 
 
@@ -603,6 +724,9 @@ if __name__ == '__main__':
     import sys
 
     app = QApplication(sys.argv)
+
     seeingMonitor = SeeingMonitor()
+    eventHandler = EventHandler(seeingMonitor)
+    seeingMonitor.stars_capture.installEventFilter(eventHandler)
     seeingMonitor.show()
     sys.exit(app.exec_())

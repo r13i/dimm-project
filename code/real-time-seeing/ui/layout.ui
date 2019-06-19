@@ -48,6 +48,12 @@
            <height>480</height>
           </size>
          </property>
+         <property name="cursor">
+          <cursorShape>CrossCursor</cursorShape>
+         </property>
+         <property name="mouseTracking">
+          <bool>true</bool>
+         </property>
          <property name="autoFillBackground">
           <bool>false</bool>
          </property>
@@ -186,7 +192,73 @@
        </item>
        <item>
         <layout class="QFormLayout" name="formLayout">
-         <item row="1" column="0">
+         <item row="0" column="0" colspan="2">
+          <widget class="QPushButton" name="button_roi">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Press this button to select the Regions of Interest (where the two star projections are located)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="whatsThis">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Press this button to select the Regions of Interest (where the two star projections are located)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="text">
+            <string>Select ROI</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_7">
+           <property name="text">
+            <string>Saving file path</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLineEdit" name="lineedit_path"/>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_8">
+           <property name="text">
+            <string>Saving file name</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QLineEdit" name="lineedit_filename"/>
+         </item>
+         <item row="4" column="0" colspan="2">
+          <widget class="Line" name="line_5">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="0">
+          <widget class="QLabel" name="label_threshold">
+           <property name="text">
+            <string>Pixel Threshold</string>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="1">
+          <widget class="QSlider" name="slider_threshold">
+           <property name="maximum">
+            <number>255</number>
+           </property>
+           <property name="value">
+            <number>127</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="tickPosition">
+            <enum>QSlider::TicksBelow</enum>
+           </property>
+           <property name="tickInterval">
+            <number>16</number>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="0">
           <widget class="QLabel" name="label">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Wavelength in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -199,7 +271,7 @@
            </property>
           </widget>
          </item>
-         <item row="1" column="1">
+         <item row="6" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_lambda">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -221,7 +293,7 @@
            </property>
           </widget>
          </item>
-         <item row="2" column="0">
+         <item row="7" column="0">
           <widget class="QLabel" name="label_2">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Apertures Separation in meters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -234,7 +306,7 @@
            </property>
           </widget>
          </item>
-         <item row="2" column="1">
+         <item row="7" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_b">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -253,7 +325,7 @@
            </property>
           </widget>
          </item>
-         <item row="3" column="0">
+         <item row="8" column="0">
           <widget class="QLabel" name="label_3">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Apertures Diameter in meters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -266,7 +338,7 @@
            </property>
           </widget>
          </item>
-         <item row="3" column="1">
+         <item row="8" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_d">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -285,7 +357,7 @@
            </property>
           </widget>
          </item>
-         <item row="4" column="0">
+         <item row="9" column="0">
           <widget class="QLabel" name="label_4">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focal Length in millimeters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -298,7 +370,7 @@
            </property>
           </widget>
          </item>
-         <item row="4" column="1">
+         <item row="9" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_focal">
            <property name="decimals">
             <number>9</number>
@@ -308,7 +380,7 @@
            </property>
           </widget>
          </item>
-         <item row="5" column="0">
+         <item row="10" column="0">
           <widget class="QLabel" name="label_5">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Pixel Width in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -321,20 +393,7 @@
            </property>
           </widget>
          </item>
-         <item row="6" column="0">
-          <widget class="QLabel" name="label_6">
-           <property name="toolTip">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Pixel Height in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="whatsThis">
-            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Pixel Height in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-           </property>
-           <property name="text">
-            <string>Pixel Height (µm)</string>
-           </property>
-          </widget>
-         </item>
-         <item row="5" column="1">
+         <item row="10" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_pwidth">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -350,7 +409,20 @@
            </property>
           </widget>
          </item>
-         <item row="6" column="1">
+         <item row="11" column="0">
+          <widget class="QLabel" name="label_6">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Pixel Height in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="whatsThis">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Pixel Height in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="text">
+            <string>Pixel Height (µm)</string>
+           </property>
+          </widget>
+         </item>
+         <item row="11" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_pheight">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -366,38 +438,43 @@
            </property>
           </widget>
          </item>
-         <item row="0" column="1">
-          <widget class="QSlider" name="slider_threshold">
-           <property name="maximum">
-            <number>255</number>
-           </property>
-           <property name="value">
-            <number>127</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="tickPosition">
-            <enum>QSlider::TicksBelow</enum>
-           </property>
-           <property name="tickInterval">
-            <number>16</number>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="0">
-          <widget class="QLabel" name="label_threshold">
+         <item row="1" column="0" colspan="2">
+          <widget class="QLineEdit" name="lineedit_star">
            <property name="text">
-            <string>Pixel Threshold</string>
+            <string/>
+           </property>
+           <property name="placeholderText">
+            <string>Please type star name and characteristics</string>
            </property>
           </widget>
          </item>
         </layout>
        </item>
        <item>
-        <widget class="QLabel" name="parameters_label">
+        <widget class="QLabel" name="label_info">
+         <property name="frameShape">
+          <enum>QFrame::Panel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Plain</enum>
+         </property>
+         <property name="lineWidth">
+          <number>2</number>
+         </property>
          <property name="text">
-          <string>TextLabel</string>
+          <string/>
+         </property>
+         <property name="scaledContents">
+          <bool>false</bool>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+         <property name="margin">
+          <number>10</number>
          </property>
         </widget>
        </item>
