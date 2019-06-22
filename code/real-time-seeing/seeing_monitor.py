@@ -107,6 +107,9 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.save_filename = None
         self._updateFileSave()
 
+        self.datetimeedit_start.setMinimumDateTime(QDateTime.currentDateTime())
+        self.datetimeedit_end.setMinimumDateTime(QDateTime.currentDateTime())
+
         if platform.system() == 'Linux':
             self.button_start.setEnabled(False)
             self.button_settings.setEnabled(False)
@@ -118,8 +121,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.button_export.clicked.connect(self.exportVideo)
         self.button_roi.clicked.connect(self.selectRegionsOfInterest)
         self.slider_threshold.valueChanged.connect(self._updateThreshold)
-        self.lineedit_path.editingFinished.connect(self._updateFileSave)
-        self.lineedit_filename.editingFinished.connect(self._updateFileSave)
+        self.lineedit_path.textEdited.connect(self._updateFileSave)
+        self.lineedit_filename.textEdited.connect(self._updateFileSave)
 
         # Update the Tilt value
         self.spinbox_b.valueChanged.connect(self._updateFormulaZTilt)
@@ -379,11 +382,11 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
         else:
             with open(self.save_filename, "a") as csvFile:
-                # writer = csv.writer(csvFile)
-                # writer.writerow([self.current , self.fwhm_lat, self.fwhm_tra, self.lineedit_star.text()])
-                csvFile.write(",".join([str(self.current) , str(self.fwhm_lat), str(self.fwhm_tra), self.lineedit_star.text()]))
-                csvFile.write("\n")
-                csvFile.close()
+                writer = csv.writer(csvFile)
+                writer.writerow([self.current.toTime_t() , self.fwhm_lat, self.fwhm_tra, self.lineedit_star.text()])
+                # csvFile.write(",".join([str(self.current) , str(self.fwhm_lat), str(self.fwhm_tra), self.lineedit_star.text()]))
+                # csvFile.write("\n")
+                # csvFile.close()
 
 
     def selectRegionsOfInterest(self):
@@ -481,60 +484,60 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
                 self.coordinates_regionsOfInterest[2][0] + 1 : self.coordinates_regionsOfInterest[3][0]
             ].copy()
 
-            gray1 = cv2.cvtColor(star1, cv2.COLOR_BGR2GRAY)
-            gray2 = cv2.cvtColor(star2, cv2.COLOR_BGR2GRAY)
-            _, thresholded1 = cv2.threshold(gray1, self.THRESH, 255, cv2.THRESH_TOZERO)
-            _, thresholded2 = cv2.threshold(gray2, self.THRESH, 255, cv2.THRESH_TOZERO)
+            if star1.size != 0 and star2.size != 0:
 
-            # # _, contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            # contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-            # # cv2.drawContours(self.frame, contours, -1, (0,255,0), 2)
+                gray1 = cv2.cvtColor(star1, cv2.COLOR_BGR2GRAY)
+                gray2 = cv2.cvtColor(star2, cv2.COLOR_BGR2GRAY)
+                _, thresholded1 = cv2.threshold(gray1, self.THRESH, 255, cv2.THRESH_TOZERO)
+                _, thresholded2 = cv2.threshold(gray2, self.THRESH, 255, cv2.THRESH_TOZERO)
 
-            moments_star_1 = cv2.moments(thresholded1)
-            moments_star_2 = cv2.moments(thresholded2)
+                # contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-            try:
-                cX_star1 = int(moments_star_1["m10"] / moments_star_1["m00"])
-                cY_star1 = int(moments_star_1["m01"] / moments_star_1["m00"])
+                moments_star_1 = cv2.moments(thresholded1)
+                moments_star_2 = cv2.moments(thresholded2)
 
-                cX_star2 = int(moments_star_2["m10"] / moments_star_2["m00"])
-                cY_star2 = int(moments_star_2["m01"] / moments_star_2["m00"])
+                try:
+                    cX_star1 = int(moments_star_1["m10"] / moments_star_1["m00"])
+                    cY_star1 = int(moments_star_1["m01"] / moments_star_1["m00"])
 
-            except ZeroDivisionError:
-                return
+                    cX_star2 = int(moments_star_2["m10"] / moments_star_2["m00"])
+                    cY_star2 = int(moments_star_2["m01"] / moments_star_2["m00"])
 
-            if self.enable_seeing.isChecked():
-                delta_x = abs(cX_star2 - cX_star1)
-                delta_y = abs(cY_star2 - cY_star1)
+                except ZeroDivisionError:
+                    return
 
-                self.arr_delta_x.append(delta_x)
-                self.arr_delta_y.append(delta_y)
+                if self.enable_seeing.isChecked():
+                    delta_x = abs(cX_star2 - cX_star1)
+                    delta_y = abs(cY_star2 - cY_star1)
 
-                self._calcSeeing()
+                    self.arr_delta_x.append(delta_x)
+                    self.arr_delta_y.append(delta_y)
 
-                threading.Thread(target=self._plotSeeing, args=(), daemon=True).start()
-                threading.Thread(target=self._writeCSV, args=(), daemon=True).start()
+                    self._calcSeeing()
+
+                    threading.Thread(target=self._plotSeeing, args=(), daemon=True).start()
+                    threading.Thread(target=self._writeCSV, args=(), daemon=True).start()
 
 
-            cv2.drawMarker(
-                self.frame,
-                (cX_star1 + self.coordinates_regionsOfInterest[0][0], cY_star1 + self.coordinates_regionsOfInterest[0][1]),
-                color=(0, 0, 255), markerSize=30, thickness=1)
-            cv2.drawMarker(
-                self.frame,
-                (cX_star2 + self.coordinates_regionsOfInterest[2][0], cY_star2 + self.coordinates_regionsOfInterest[2][1]),
-                color=(0, 0, 255), markerSize=30, thickness=1)
+                cv2.drawMarker(
+                    self.frame,
+                    (cX_star1 + self.coordinates_regionsOfInterest[0][0], cY_star1 + self.coordinates_regionsOfInterest[0][1]),
+                    color=(0, 0, 255), markerSize=30, thickness=1)
+                cv2.drawMarker(
+                    self.frame,
+                    (cX_star2 + self.coordinates_regionsOfInterest[2][0], cY_star2 + self.coordinates_regionsOfInterest[2][1]),
+                    color=(0, 0, 255), markerSize=30, thickness=1)
 
         qImage = array2qimage(self.frame)
         self.stars_capture.setPixmap(QPixmap(qImage))
 
-        if self.export_video:
-            self.video_writer.write(self.frame)
+        threading.Thread(target=self._writeVideoFile, args=(), daemon=True).start()
 
         toc = time.time()
         elapsed = toc - tic
         try:
-            print("FPS max = {}".format(int(1.0 / elapsed)))
+            pass
+            # print("FPS max = {}".format(int(1.0 / elapsed)))
         except ZeroDivisionError:
             pass
 
@@ -675,6 +678,14 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
                 (640, 480)  #################################################################################
             )
             self.export_video = True
+
+    def _writeVideoFile(self):
+        current = QDateTime.currentDateTime()
+        if self.export_video and current >= self.datetimeedit_start.dateTime() and \
+            current < self.datetimeedit_end.dateTime():
+
+            print(current)
+            self.video_writer.write(self.frame)
 
 
     def _setPauseButton(self):
