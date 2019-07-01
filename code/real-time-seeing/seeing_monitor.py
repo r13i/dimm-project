@@ -169,7 +169,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.axis_horizontal.setMin(QDateTime.currentDateTime().addSecs(-60 * 1))
         self.axis_horizontal.setMax(QDateTime.currentDateTime().addSecs(0))
         self.axis_horizontal.setFormat("HH:mm:ss.zzz")
-        self.axis_horizontal.setLabelsFont(QFont(QFont.defaultFamily(self.font()), pointSize=6))
+        self.axis_horizontal.setLabelsFont(QFont(QFont.defaultFamily(self.font()), pointSize=5))
         self.axis_horizontal.setLabelsAngle(-20)
         self.chart.addAxis(self.axis_horizontal, Qt.AlignBottom)
 
@@ -191,7 +191,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.chart.legend().setVisible(True)
         self.chart.legend().setAlignment(Qt.AlignBottom)
         self.chartView = QChartView(self.chart, parent=self.graphicsView)
-        self.chartView.resize(640, 200)
+        self.chartView.resize(640, 250)
         self.chartView.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Maximum)
         self.chartView.setRenderHint(QPainter.Antialiasing)
 
@@ -467,6 +467,20 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.fwhm_lat = self.A * np.power(std_x / self.K_lat, 0.6)
         self.fwhm_tra = self.A * np.power(std_y / self.K_tra, 0.6)
 
+        self.label_info.setText("lat: " + str(self.fwhm_lat) + " | lon: " + str(self.fwhm_tra))
+
+
+    def _calcSeeing_arcsec(self):
+        std_x = np.std(self.arr_delta_x)
+        std_y = np.std(self.arr_delta_y)
+
+        # Seeing
+        self.current = QDateTime.currentDateTime()
+        self.fwhm_lat = self.A * np.power(std_x / self.K_lat, 0.6) * 205.0 * self.spinbox_pwidth.value() / self.spinbox_focal.value()
+        self.fwhm_tra = self.A * np.power(std_y / self.K_tra, 0.6) * 205.0 * self.spinbox_pheight.value() / self.spinbox_focal.value()
+
+        self.label_info.setText("lat: " + str(self.fwhm_lat) + " | lon: " + str(self.fwhm_tra))
+
 
     def _monitor(self):
 
@@ -513,7 +527,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
                     self.arr_delta_x.append(delta_x)
                     self.arr_delta_y.append(delta_y)
 
-                    self._calcSeeing()
+                    # self._calcSeeing()
+                    self._calcSeeing_arcsec()
 
                     threading.Thread(target=self._plotSeeing, args=(), daemon=True).start()
                     threading.Thread(target=self._writeCSV, args=(), daemon=True).start()
@@ -536,8 +551,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         toc = time.time()
         elapsed = toc - tic
         try:
-            pass
-            # print("FPS max = {}".format(int(1.0 / elapsed)))
+            # pass
+            print("FPS max = {}".format(int(1.0 / elapsed)))
         except ZeroDivisionError:
             pass
 
