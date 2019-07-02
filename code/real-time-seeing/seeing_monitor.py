@@ -119,7 +119,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.button_simulation.clicked.connect(self.startSimulation)
         self.button_import.clicked.connect(self.importVideo)
         self.button_export.clicked.connect(self.exportVideo)
-        self.button_roi.clicked.connect(self.selectRegionsOfInterest)
+        # self.button_roi.clicked.connect(self.selectRegionsOfInterest)
+        self.button_roi.setEnabled(False) #################################################################
         self.slider_threshold.valueChanged.connect(self._updateThreshold)
         self.lineedit_path.textEdited.connect(self._updateFileSave)
         self.lineedit_filename.textEdited.connect(self._updateFileSave)
@@ -143,8 +144,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
 
         # Storing the Delta X and Y in an array to calculate the Standard Deviation
-        self.arr_delta_x = deque(maxlen=100)
-        self.arr_delta_y = deque(maxlen=100)
+        self.arr_delta_x = deque(maxlen=20)
+        self.arr_delta_y = deque(maxlen=20)
 
         self.plot_length = 1000
         self.fwhm_lat = 0
@@ -467,6 +468,9 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.fwhm_lat = self.A * np.power(std_x / self.K_lat, 0.6)
         self.fwhm_tra = self.A * np.power(std_y / self.K_tra, 0.6)
 
+        threading.Thread(target=self._plotSeeing, args=(), daemon=True).start()
+        threading.Thread(target=self._writeCSV, args=(), daemon=True).start()
+
         self.label_info.setText("lat: " + str(self.fwhm_lat) + " | lon: " + str(self.fwhm_tra))
 
 
@@ -479,82 +483,94 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.fwhm_lat = self.A * np.power(std_x / self.K_lat, 0.6) * 205.0 * self.spinbox_pwidth.value() / self.spinbox_focal.value()
         self.fwhm_tra = self.A * np.power(std_y / self.K_tra, 0.6) * 205.0 * self.spinbox_pheight.value() / self.spinbox_focal.value()
 
+        threading.Thread(target=self._plotSeeing, args=(), daemon=True).start()
+        threading.Thread(target=self._writeCSV, args=(), daemon=True).start()
+
         self.label_info.setText("lat: " + str(self.fwhm_lat) + " | lon: " + str(self.fwhm_tra))
+
+
 
 
     def _monitor(self):
 
         tic = time.time()
 
-        self._draw_regionsOfInterest()
+        gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
 
-        if self.select_regionsOfInterest == False and len(self.coordinates_regionsOfInterest) == 4:
-            star1 = self.frame[
-                self.coordinates_regionsOfInterest[0][1] + 1 : self.coordinates_regionsOfInterest[1][1],
-                self.coordinates_regionsOfInterest[0][0] + 1 : self.coordinates_regionsOfInterest[1][0]
-            ].copy()
-            star2 = self.frame[
-                self.coordinates_regionsOfInterest[2][1] + 1 : self.coordinates_regionsOfInterest[3][1],
-                self.coordinates_regionsOfInterest[2][0] + 1 : self.coordinates_regionsOfInterest[3][0]
-            ].copy()
+        self._updateThreshold()
+        _, thresholded = cv2.threshold(gray, self.THRESH, 255, cv2.THRESH_TOZERO)
 
-            if star1.size != 0 and star2.size != 0:
+        # _, contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-                gray1 = cv2.cvtColor(star1, cv2.COLOR_BGR2GRAY)
-                gray2 = cv2.cvtColor(star2, cv2.COLOR_BGR2GRAY)
-                _, thresholded1 = cv2.threshold(gray1, self.THRESH, 255, cv2.THRESH_TOZERO)
-                _, thresholded2 = cv2.threshold(gray2, self.THRESH, 255, cv2.THRESH_TOZERO)
+        # contours = contours[:2]
 
-                # contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        # if contours.__len__() > 2:
+        #     QMessageBox.warning(self, "Thresholding error", "More than 2 projections were found. " + \
+        #         "Please increase threshold manually or select a better noise area.")
 
-                moments_star_1 = cv2.moments(thresholded1)
-                moments_star_2 = cv2.moments(thresholded2)
+        cv2.drawContours(self.frame, contours, -1, (0,255,0), 2)
+        # self._draw_noiseArea()
 
-                try:
-                    cX_star1 = int(moments_star_1["m10"] / moments_star_1["m00"])
-                    cY_star1 = int(moments_star_1["m01"] / moments_star_1["m00"])
+        try:
+            moments_star_1 = cv2.moments(contours[0])
+            moments_star_2 = cv2.moments(contours[1])
 
-                    cX_star2 = int(moments_star_2["m10"] / moments_star_2["m00"])
-                    cY_star2 = int(moments_star_2["m01"] / moments_star_2["m00"])
+        except IndexError:
+            print("Only {} were found ! (Must be at least 2)".format(len(contours)))
 
-                except ZeroDivisionError:
-                    return
+        else:
 
-                if self.enable_seeing.isChecked():
-                    delta_x = abs(cX_star2 - cX_star1)
-                    delta_y = abs(cY_star2 - cY_star1)
+            try:
+                cX_star1 = int(moments_star_1["m10"] / moments_star_1["m00"])
+                cY_star1 = int(moments_star_1["m01"] / moments_star_1["m00"])
 
-                    self.arr_delta_x.append(delta_x)
-                    self.arr_delta_y.append(delta_y)
+                cX_star2 = int(moments_star_2["m10"] / moments_star_2["m00"])
+                cY_star2 = int(moments_star_2["m01"] / moments_star_2["m00"])
 
-                    # self._calcSeeing()
-                    self._calcSeeing_arcsec()
+            except ZeroDivisionError:
+                return
 
-                    threading.Thread(target=self._plotSeeing, args=(), daemon=True).start()
-                    threading.Thread(target=self._writeCSV, args=(), daemon=True).start()
+            if self.enable_seeing.isChecked():
+                delta_x = abs(cX_star2 - cX_star1)
+                delta_y = abs(cY_star2 - cY_star1)
+
+                self.arr_delta_x.append(delta_x)
+                self.arr_delta_y.append(delta_y)
+
+                # self._calcSeeing()
+                self._calcSeeing_arcsec()
 
 
-                cv2.drawMarker(
-                    self.frame,
-                    (cX_star1 + self.coordinates_regionsOfInterest[0][0], cY_star1 + self.coordinates_regionsOfInterest[0][1]),
-                    color=(0, 0, 255), markerSize=30, thickness=1)
-                cv2.drawMarker(
-                    self.frame,
-                    (cX_star2 + self.coordinates_regionsOfInterest[2][0], cY_star2 + self.coordinates_regionsOfInterest[2][1]),
-                    color=(0, 0, 255), markerSize=30, thickness=1)
+            cv2.drawMarker(
+                self.frame,
+                (cX_star1, cY_star1),
+                color=(0, 0, 255), markerSize=30, thickness=1)
+            cv2.drawMarker(
+                self.frame,
+                (cX_star2, cY_star2),
+                color=(0, 0, 255), markerSize=30, thickness=1)
 
-        qImage = array2qimage(self.frame)
-        self.stars_capture.setPixmap(QPixmap(qImage))
+        finally:
 
-        threading.Thread(target=self._writeVideoFile, args=(), daemon=True).start()
+            self._displayImage()
+
+            threading.Thread(target=self._writeVideoFile, args=(), daemon=True).start()
 
         toc = time.time()
         elapsed = toc - tic
         try:
-            # pass
             print("FPS max = {}".format(int(1.0 / elapsed)))
         except ZeroDivisionError:
             pass
+
+
+    def _displayImage(self):
+        qImage = array2qimage(self.frame)
+        self.stars_capture.setPixmap(QPixmap(qImage))
+
+
+
 
 
     def _plotSeeing(self):
