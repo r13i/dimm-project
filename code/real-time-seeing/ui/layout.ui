@@ -24,7 +24,7 @@
   </property>
   <property name="windowIcon">
    <iconset>
-    <normaloff>../index.jpeg</normaloff>../index.jpeg</iconset>
+    <normaloff>../../.designer/index.jpeg</normaloff>../../.designer/index.jpeg</iconset>
   </property>
   <widget class="QWidget" name="centralwidget">
    <property name="enabled">
@@ -193,7 +193,7 @@
        <item>
         <layout class="QFormLayout" name="formLayout">
          <item row="0" column="0" colspan="2">
-          <widget class="QPushButton" name="button_roi">
+          <widget class="QPushButton" name="button_noise">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Press this button to select the Regions of Interest (where the two star projections are located)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
@@ -201,7 +201,7 @@
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Press this button to select the Regions of Interest (where the two star projections are located)&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
            <property name="text">
-            <string>Select ROI</string>
+            <string>Select Noise Area</string>
            </property>
           </widget>
          </item>
@@ -215,60 +215,54 @@
            </property>
           </widget>
          </item>
-         <item row="2" column="0">
+         <item row="3" column="0">
           <widget class="QLabel" name="label_7">
            <property name="text">
             <string>Saving file path</string>
            </property>
           </widget>
          </item>
-         <item row="2" column="1">
+         <item row="3" column="1">
           <widget class="QLineEdit" name="lineedit_path"/>
          </item>
-         <item row="3" column="0">
+         <item row="4" column="0">
           <widget class="QLabel" name="label_8">
            <property name="text">
             <string>Saving file name</string>
            </property>
           </widget>
          </item>
-         <item row="3" column="1">
+         <item row="4" column="1">
           <widget class="QLineEdit" name="lineedit_filename"/>
          </item>
-         <item row="6" column="0" colspan="2">
+         <item row="5" column="0">
+          <widget class="QLabel" name="label_9">
+           <property name="text">
+            <string>Start recording</string>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="1">
+          <widget class="QDateTimeEdit" name="datetimeedit_start"/>
+         </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="label_10">
+           <property name="text">
+            <string>End recording</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="1">
+          <widget class="QDateTimeEdit" name="datetimeedit_end"/>
+         </item>
+         <item row="8" column="0" colspan="2">
           <widget class="Line" name="line_5">
            <property name="orientation">
             <enum>Qt::Horizontal</enum>
            </property>
           </widget>
          </item>
-         <item row="8" column="0">
-          <widget class="QLabel" name="label_threshold">
-           <property name="text">
-            <string>Pixel Threshold</string>
-           </property>
-          </widget>
-         </item>
-         <item row="8" column="1">
-          <widget class="QSlider" name="slider_threshold">
-           <property name="maximum">
-            <number>255</number>
-           </property>
-           <property name="value">
-            <number>127</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Horizontal</enum>
-           </property>
-           <property name="tickPosition">
-            <enum>QSlider::TicksBelow</enum>
-           </property>
-           <property name="tickInterval">
-            <number>16</number>
-           </property>
-          </widget>
-         </item>
-         <item row="9" column="0">
+         <item row="12" column="0">
           <widget class="QLabel" name="label">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Wavelength in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -281,7 +275,7 @@
            </property>
           </widget>
          </item>
-         <item row="9" column="1">
+         <item row="12" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_lambda">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -303,7 +297,7 @@
            </property>
           </widget>
          </item>
-         <item row="10" column="0">
+         <item row="13" column="0">
           <widget class="QLabel" name="label_2">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Apertures Separation in meters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -316,7 +310,7 @@
            </property>
           </widget>
          </item>
-         <item row="10" column="1">
+         <item row="13" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_b">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -335,7 +329,7 @@
            </property>
           </widget>
          </item>
-         <item row="11" column="0">
+         <item row="14" column="0">
           <widget class="QLabel" name="label_3">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Apertures Diameter in meters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -348,7 +342,7 @@
            </property>
           </widget>
          </item>
-         <item row="11" column="1">
+         <item row="14" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_d">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -367,7 +361,7 @@
            </property>
           </widget>
          </item>
-         <item row="12" column="0">
+         <item row="15" column="0">
           <widget class="QLabel" name="label_4">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Focal Length in millimeters&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -380,7 +374,7 @@
            </property>
           </widget>
          </item>
-         <item row="12" column="1">
+         <item row="15" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_focal">
            <property name="decimals">
             <number>9</number>
@@ -393,7 +387,7 @@
            </property>
           </widget>
          </item>
-         <item row="13" column="0">
+         <item row="16" column="0">
           <widget class="QLabel" name="label_5">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Pixel Width in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -406,7 +400,7 @@
            </property>
           </widget>
          </item>
-         <item row="13" column="1">
+         <item row="16" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_pwidth">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -421,11 +415,11 @@
             <double>999999999.999999046325684</double>
            </property>
            <property name="value">
-            <double>300.000000000000000</double>
+            <double>10.000000000000000</double>
            </property>
           </widget>
          </item>
-         <item row="14" column="0">
+         <item row="17" column="0">
           <widget class="QLabel" name="label_6">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Pixel Height in micrometers&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -438,7 +432,7 @@
            </property>
           </widget>
          </item>
-         <item row="14" column="1">
+         <item row="17" column="1">
           <widget class="QDoubleSpinBox" name="spinbox_pheight">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
@@ -453,27 +447,39 @@
             <double>999999999.999999046325684</double>
            </property>
            <property name="value">
-            <double>300.000000000000000</double>
+            <double>10.000000000000000</double>
            </property>
           </widget>
          </item>
-         <item row="4" column="1">
-          <widget class="QDateTimeEdit" name="datetimeedit_start"/>
-         </item>
-         <item row="5" column="1">
-          <widget class="QDateTimeEdit" name="datetimeedit_end"/>
-         </item>
-         <item row="4" column="0">
-          <widget class="QLabel" name="label_9">
-           <property name="text">
-            <string>Start recording</string>
+         <item row="11" column="1">
+          <widget class="QSlider" name="slider_threshold">
+           <property name="enabled">
+            <bool>true</bool>
+           </property>
+           <property name="maximum">
+            <number>255</number>
+           </property>
+           <property name="value">
+            <number>127</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="tickPosition">
+            <enum>QSlider::TicksBelow</enum>
+           </property>
+           <property name="tickInterval">
+            <number>16</number>
            </property>
           </widget>
          </item>
-         <item row="5" column="0">
-          <widget class="QLabel" name="label_10">
+         <item row="11" column="0">
+          <widget class="QCheckBox" name="checkbox_thresh">
+           <property name="layoutDirection">
+            <enum>Qt::RightToLeft</enum>
+           </property>
            <property name="text">
-            <string>End recording</string>
+            <string>Threshold (auto)</string>
            </property>
           </widget>
          </item>
@@ -605,102 +611,5 @@
   </action>
  </widget>
  <resources/>
- <connections>
-  <connection>
-   <sender>actionSelect_camera</sender>
-   <signal>triggered()</signal>
-   <receiver>button_start</receiver>
-   <slot>click()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>811</x>
-     <y>52</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>actionSimulation</sender>
-   <signal>triggered()</signal>
-   <receiver>button_simulation</receiver>
-   <slot>click()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>811</x>
-     <y>125</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>actionExit</sender>
-   <signal>triggered()</signal>
-   <receiver>MainWindow</receiver>
-   <slot>close()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>479</x>
-     <y>522</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>actionEnable_Seeing_Monitoring</sender>
-   <signal>triggered()</signal>
-   <receiver>enable_seeing</receiver>
-   <slot>click()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1000</x>
-     <y>287</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>actionImport_Video_File</sender>
-   <signal>triggered()</signal>
-   <receiver>button_import</receiver>
-   <slot>click()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1000</x>
-     <y>177</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>actionExport_to_Video_FIle</sender>
-   <signal>triggered()</signal>
-   <receiver>button_export</receiver>
-   <slot>click()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>-1</x>
-     <y>-1</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1000</x>
-     <y>208</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>

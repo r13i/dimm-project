@@ -63,27 +63,28 @@ class EventHandler(QObject):
 
         self.mouse_pressed = False
         self.starting_point = []
-        self.region_idx = 0
 
     def eventFilter(self, obj, event):
         if event.type() == QEvent.MouseButtonPress:
-            if self.seeingMonitor.select_regionsOfInterest == True and self.mouse_pressed == False:
+            if self.seeingMonitor.select_noiseArea == True and self.mouse_pressed == False:
                 self.mouse_pressed = True
                 self.starting_point.append(event.x())
                 self.starting_point.append(event.y())
             return True
         elif event.type() == QEvent.MouseMove:
-            if self.seeingMonitor.select_regionsOfInterest == True and self.mouse_pressed == True:
-                self.seeingMonitor._set_regionsOfInterest(self.region_idx, self.starting_point[0], self.starting_point[1], event.x(), event.y())
+            if self.seeingMonitor.select_noiseArea == True and self.mouse_pressed == True:
+                self.seeingMonitor._set_noiseArea(self.starting_point[0], self.starting_point[1], event.x(), event.y())
+                if self.seeingMonitor.pause_pressed:
+                    self.seeingMonitor.draw_only_frame = self.seeingMonitor.frame.copy()
+                    self.seeingMonitor._draw_noiseArea()
+                    self.seeingMonitor._displayImage()
             return True
         elif event.type() == QEvent.MouseButtonRelease:
             self.mouse_pressed = False
             self.starting_point = []
-            if self.region_idx == 1:
-                self.seeingMonitor.select_regionsOfInterest = False
-                self.seeingMonitor.label_info.setText("")
-
-            self.region_idx = 0 if self.region_idx == 1 else 1
+            self.seeingMonitor.select_noiseArea = False
+            self.seeingMonitor.label_info.setText("")
+            self.seeingMonitor.button_noise.setText("Select Noise Area")
             return True
         else:
             return QObject.eventFilter(self, obj, event)
@@ -98,14 +99,19 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
 
         self.Camera = None
+        self.THRESH = None
+        self.threshold_auto = False
+        self.frame = None
+        self.draw_only_frame = None
         self.video_source = VideoSource.NONE
         self.export_video = False
-        self.select_regionsOfInterest = False
-        self.coordinates_regionsOfInterest = []
+        self.select_noiseArea = False
+        self.coordinates_noiseArea = []
         self.lineedit_path.setText(QDir.currentPath())
         self.lineedit_filename.setText("seeing.csv")
         self.save_filename = None
         self._updateFileSave()
+        self.pause_pressed = False
 
         self.datetimeedit_start.setMinimumDateTime(QDateTime.currentDateTime())
         self.datetimeedit_end.setMinimumDateTime(QDateTime.currentDateTime())
@@ -119,10 +125,11 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.button_simulation.clicked.connect(self.startSimulation)
         self.button_import.clicked.connect(self.importVideo)
         self.button_export.clicked.connect(self.exportVideo)
-        self.button_roi.clicked.connect(self.selectRegionsOfInterest)
-        self.slider_threshold.valueChanged.connect(self._updateThreshold)
+        self.button_noise.clicked.connect(self.selectNoiseArea)
         self.lineedit_path.textEdited.connect(self._updateFileSave)
         self.lineedit_filename.textEdited.connect(self._updateFileSave)
+        self.slider_threshold.valueChanged.connect(self._updateThreshold)
+        self.checkbox_thresh.stateChanged.connect(self._updateThresholdState)
 
         # Update the Tilt value
         self.spinbox_b.valueChanged.connect(self._updateFormulaZTilt)
@@ -237,6 +244,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
             frame = np.uint8(cvMat)
             self.frame = cv2.resize(frame, (640, 480))
+            self.draw_only_frame = self.frame.copy()
             self._monitor()
 
 
@@ -314,13 +322,14 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
             QMessageBox.warning(self, "Property Dialog Error", traceback.format_exc())
 
 
-    def _updateLiveCamera(self):
-        # Capturing a frame
-        self.Camera.SnapImage()
-        frame = self.Camera.GetImage()
-        frame = np.uint8(frame)
-        self.frame = cv2.resize(frame, (640, 480))
-        self._monitor()
+    # def _updateLiveCamera(self):
+    #     # Capturing a frame
+    #     self.Camera.SnapImage()
+    #     frame = self.Camera.GetImage()
+    #     frame = np.uint8(frame)
+    #     self.frame = cv2.resize(frame, (640, 480))
+    #     self.draw_only_frame = self.frame.copy()
+    #     self._monitor()
 
         # self.displayParameters()
 
@@ -368,6 +377,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
     def _updateSimulation(self):
         frame = self.starsGenerator.generate()
         self.frame = cv2.resize(frame, (640, 480))
+        self.draw_only_frame = self.frame.copy()
         self._monitor()
 
 
@@ -389,46 +399,29 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
                 # csvFile.close()
 
 
-    def selectRegionsOfInterest(self):
-        self.label_info.setText("Please select two areas on the screen with your mouse.")
-        self.coordinates_regionsOfInterest = []
-        self.select_regionsOfInterest = True
+    def selectNoiseArea(self):
+        self.label_info.setText("Please select on the video a noise area.")
+        self.button_noise.setText("Selecting ...")
+        self.coordinates_noiseArea = []
+        self.select_noiseArea = True
 
 
-    def _set_regionsOfInterest(self, region_idx, x1, y1, x2, y2):
-        if region_idx == 0:
-            if len(self.coordinates_regionsOfInterest) == 0:
-                self.coordinates_regionsOfInterest.append([x1, y1])
-                self.coordinates_regionsOfInterest.append([x2, y2])
+    def _set_noiseArea(self, x1, y1, x2, y2):
+        if len(self.coordinates_noiseArea) == 0:
+            self.coordinates_noiseArea.append([x1, y1])
+            self.coordinates_noiseArea.append([x2, y2])
 
-            elif len(self.coordinates_regionsOfInterest) == 2:
-                self.coordinates_regionsOfInterest[0] = [x1, y1]
-                self.coordinates_regionsOfInterest[1] = [x2, y2]
-        elif region_idx == 1:
-            if len(self.coordinates_regionsOfInterest) == 2:
-                self.coordinates_regionsOfInterest.append([x1, y1])
-                self.coordinates_regionsOfInterest.append([x2, y2])
-
-            elif len(self.coordinates_regionsOfInterest) == 4:
-                self.coordinates_regionsOfInterest[2] = [x1, y1]
-                self.coordinates_regionsOfInterest[3] = [x2, y2]
+        elif len(self.coordinates_noiseArea) == 2:
+            self.coordinates_noiseArea[0] = [x1, y1]
+            self.coordinates_noiseArea[1] = [x2, y2]
 
 
-    def _draw_regionsOfInterest(self):
-        if len(self.coordinates_regionsOfInterest) >= 2:
-            self.frame
+    def _draw_noiseArea(self):
+        if len(self.coordinates_noiseArea) >= 2:
             cv2.rectangle(
-                self.frame,
-                (self.coordinates_regionsOfInterest[0][0], self.coordinates_regionsOfInterest[0][1]),
-                (self.coordinates_regionsOfInterest[1][0], self.coordinates_regionsOfInterest[1][1]),
-                (0, 255, 0), 1)
-
-        if len(self.coordinates_regionsOfInterest) >= 4:
-            self.frame
-            cv2.rectangle(
-                self.frame,
-                (self.coordinates_regionsOfInterest[2][0], self.coordinates_regionsOfInterest[2][1]),
-                (self.coordinates_regionsOfInterest[3][0], self.coordinates_regionsOfInterest[3][1]),
+                self.draw_only_frame,
+                (self.coordinates_noiseArea[0][0], self.coordinates_noiseArea[0][1]),
+                (self.coordinates_noiseArea[1][0], self.coordinates_noiseArea[1][1]),
                 (0, 255, 0), 1)
 
 
@@ -438,8 +431,36 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
 
     def _updateThreshold(self):
-        self.THRESH = self.slider_threshold.value()
-        self.label_threshold.setText("Pixel Threshold ({})".format(self.THRESH))
+        if self.threshold_auto:
+            if self.coordinates_noiseArea.__len__() >= 2:
+                noise_area = self.frame[
+                    self.coordinates_noiseArea[0][1] : self.coordinates_noiseArea[1][1],
+                    self.coordinates_noiseArea[0][0] : self.coordinates_noiseArea[1][0]
+                ]
+                try:
+                    self.THRESH = noise_area.max() + 20
+                    # self.THRESH = int(round(noise_area.mean()))
+                except ValueError:
+                    return
+
+                self.slider_threshold.setValue(self.THRESH)
+                self.checkbox_thresh.setText("Threshold ({}, auto)".format(self.THRESH))
+        else:
+            self.THRESH = self.slider_threshold.value()
+            self.checkbox_thresh.setText("Threshold ({})".format(self.THRESH))
+
+
+    def _updateThresholdState(self, state):
+        if state == 0:
+            self.threshold_auto = False
+            self.slider_threshold.setEnabled(True)
+        else:
+            if self.coordinates_noiseArea.__len__() < 2:
+                QMessageBox.information(self, "Select Noise Area", "Please select the noise area")
+                self.selectNoiseArea()
+
+            self.threshold_auto = True
+            self.slider_threshold.setEnabled(False)
 
 
     def _updateFormulaZTilt(self):
@@ -467,6 +488,9 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.fwhm_lat = self.A * np.power(std_x / self.K_lat, 0.6)
         self.fwhm_tra = self.A * np.power(std_y / self.K_tra, 0.6)
 
+        threading.Thread(target=self._plotSeeing, args=(), daemon=True).start()
+        threading.Thread(target=self._writeCSV, args=(), daemon=True).start()
+
         self.label_info.setText("lat: " + str(self.fwhm_lat) + " | lon: " + str(self.fwhm_tra))
 
 
@@ -479,6 +503,9 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         self.fwhm_lat = self.A * np.power(std_x / self.K_lat, 0.6) * 205.0 * self.spinbox_pwidth.value() / self.spinbox_focal.value()
         self.fwhm_tra = self.A * np.power(std_y / self.K_tra, 0.6) * 205.0 * self.spinbox_pheight.value() / self.spinbox_focal.value()
 
+        threading.Thread(target=self._plotSeeing, args=(), daemon=True).start()
+        threading.Thread(target=self._writeCSV, args=(), daemon=True).start()
+
         self.label_info.setText("lat: " + str(self.fwhm_lat) + " | lon: " + str(self.fwhm_tra))
 
 
@@ -486,75 +513,79 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
         tic = time.time()
 
-        self._draw_regionsOfInterest()
+        gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
 
-        if self.select_regionsOfInterest == False and len(self.coordinates_regionsOfInterest) == 4:
-            star1 = self.frame[
-                self.coordinates_regionsOfInterest[0][1] + 1 : self.coordinates_regionsOfInterest[1][1],
-                self.coordinates_regionsOfInterest[0][0] + 1 : self.coordinates_regionsOfInterest[1][0]
-            ].copy()
-            star2 = self.frame[
-                self.coordinates_regionsOfInterest[2][1] + 1 : self.coordinates_regionsOfInterest[3][1],
-                self.coordinates_regionsOfInterest[2][0] + 1 : self.coordinates_regionsOfInterest[3][0]
-            ].copy()
+        self._updateThreshold()
+        _, thresholded = cv2.threshold(gray, self.THRESH, 255, cv2.THRESH_TOZERO)
 
-            if star1.size != 0 and star2.size != 0:
+        # _, contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
-                gray1 = cv2.cvtColor(star1, cv2.COLOR_BGR2GRAY)
-                gray2 = cv2.cvtColor(star2, cv2.COLOR_BGR2GRAY)
-                _, thresholded1 = cv2.threshold(gray1, self.THRESH, 255, cv2.THRESH_TOZERO)
-                _, thresholded2 = cv2.threshold(gray2, self.THRESH, 255, cv2.THRESH_TOZERO)
+        contours = contours[:2]
 
-                # contours, _ = cv2.findContours(thresholded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        # if contours.__len__() > 2:
+        #     QMessageBox.warning(self, "Thresholding error", "More than 2 projections were found. " + \
+        #         "Please increase threshold manually or select a better noise area.")
 
-                moments_star_1 = cv2.moments(thresholded1)
-                moments_star_2 = cv2.moments(thresholded2)
+        cv2.drawContours(self.draw_only_frame, contours, -1, (0,255,0), 2)
+        self._draw_noiseArea()
 
-                try:
-                    cX_star1 = int(moments_star_1["m10"] / moments_star_1["m00"])
-                    cY_star1 = int(moments_star_1["m01"] / moments_star_1["m00"])
+        try:
+            moments_star_1 = cv2.moments(contours[0])
+            moments_star_2 = cv2.moments(contours[1])
 
-                    cX_star2 = int(moments_star_2["m10"] / moments_star_2["m00"])
-                    cY_star2 = int(moments_star_2["m01"] / moments_star_2["m00"])
+        except IndexError:
+            print("Only {} were found ! (Must be at least 2)".format(len(contours)))
 
-                except ZeroDivisionError:
-                    return
+        else:
 
-                if self.enable_seeing.isChecked():
-                    delta_x = abs(cX_star2 - cX_star1)
-                    delta_y = abs(cY_star2 - cY_star1)
+            try:
+                cX_star1 = int(moments_star_1["m10"] / moments_star_1["m00"])
+                cY_star1 = int(moments_star_1["m01"] / moments_star_1["m00"])
 
-                    self.arr_delta_x.append(delta_x)
-                    self.arr_delta_y.append(delta_y)
+                cX_star2 = int(moments_star_2["m10"] / moments_star_2["m00"])
+                cY_star2 = int(moments_star_2["m01"] / moments_star_2["m00"])
 
-                    # self._calcSeeing()
-                    self._calcSeeing_arcsec()
+            except ZeroDivisionError:
+                return
 
-                    threading.Thread(target=self._plotSeeing, args=(), daemon=True).start()
-                    threading.Thread(target=self._writeCSV, args=(), daemon=True).start()
+            if self.enable_seeing.isChecked():
+                delta_x = abs(cX_star2 - cX_star1)
+                delta_y = abs(cY_star2 - cY_star1)
+
+                self.arr_delta_x.append(delta_x)
+                self.arr_delta_y.append(delta_y)
+
+                # self._calcSeeing()
+                self._calcSeeing_arcsec()
 
 
-                cv2.drawMarker(
-                    self.frame,
-                    (cX_star1 + self.coordinates_regionsOfInterest[0][0], cY_star1 + self.coordinates_regionsOfInterest[0][1]),
-                    color=(0, 0, 255), markerSize=30, thickness=1)
-                cv2.drawMarker(
-                    self.frame,
-                    (cX_star2 + self.coordinates_regionsOfInterest[2][0], cY_star2 + self.coordinates_regionsOfInterest[2][1]),
-                    color=(0, 0, 255), markerSize=30, thickness=1)
+            cv2.drawMarker(
+                self.draw_only_frame,
+                (cX_star1, cY_star1),
+                color=(0, 0, 255), markerSize=30, thickness=1)
+            cv2.drawMarker(
+                self.draw_only_frame,
+                (cX_star2, cY_star2),
+                color=(0, 0, 255), markerSize=30, thickness=1)
 
-        qImage = array2qimage(self.frame)
-        self.stars_capture.setPixmap(QPixmap(qImage))
+        finally:
 
-        threading.Thread(target=self._writeVideoFile, args=(), daemon=True).start()
+            self._displayImage()
+
+            threading.Thread(target=self._writeVideoFile, args=(), daemon=True).start()
 
         toc = time.time()
         elapsed = toc - tic
         try:
-            # pass
             print("FPS max = {}".format(int(1.0 / elapsed)))
         except ZeroDivisionError:
             pass
+
+
+    def _displayImage(self):
+        qImage = array2qimage(self.draw_only_frame)
+        self.stars_capture.setPixmap(QPixmap(qImage))
 
 
     def _plotSeeing(self):
@@ -648,6 +679,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         ret, frame = self.cap.read()
         if ret == True:
             self.frame = cv2.resize(frame, (640, 480))
+            self.draw_only_frame = self.frame.copy()
             self._monitor()
 
         else:
@@ -699,8 +731,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
         if self.export_video and current >= self.datetimeedit_start.dateTime() and \
             current < self.datetimeedit_end.dateTime():
 
-            print(current)
-            self.video_writer.write(self.frame)
+            # self.video_writer.write(self.frame)
+            self.video_writer.write(self.draw_only_frame)
 
 
     def _setPauseButton(self):
@@ -710,6 +742,8 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
 
     def _pause(self):
+        self.pause_pressed = True
+
         # IC_SuspendLive IC_StopLive ##################################################################################
         self.button_pause.setText("▶ Resume")
         self.button_pause.clicked.connect(self._resume)
@@ -721,6 +755,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
 
 
     def _resume(self):
+        self.pause_pressed = False
         self._setPauseButton()
 
         if self.video_source == VideoSource.CAMERA:
@@ -734,7 +769,7 @@ class SeeingMonitor(QMainWindow, Ui_MainWindow):
             self.acquisition_timer.start(self.timer_interval)
 
             if self.video_source == VideoSource.CAMERA:
-                self.acquisition_timer.timeout.connect(self._updateLiveCamera)
+                pass
             elif self.video_source == VideoSource.SIMULATION:
                 self.acquisition_timer.timeout.connect(self._updateSimulation)
             elif self.video_source == VideoSource.VIDEO:
