@@ -9,7 +9,7 @@ kiwisolver==1.0.1
 matplotlib==3.0.3
 networkx==2.3
 numpy==1.16.2
-opencv-python==4.1.0.25
+opencv-python==4.2.0.32
 parso==0.4.0
 pexpect==4.7.0
 pickleshare==0.7.5
